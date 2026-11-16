@@ -339,3 +339,21 @@ input[type="date"] { -webkit-appearance: none; appearance: none; min-height: 50p
 .pd-form { padding: 0 22px 22px; display: grid; gap: 12px; }
 .pd-form textarea { min-height: 110px; font-family: var(--serif); font-size: 17px; line-height: 1.7; }
 .carta .acciones .cand { font-size: 12px; }
+
+/* casilla propia (sin el dibujo nativo de iOS ni los estilos de los campos de texto) */
+.check input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none; flex: none; position: relative;
+  width: 26px; height: 26px; min-width: 26px; min-height: 0; max-width: none; padding: 0; margin: 0;
+  border-radius: 8px; background: var(--paper); border: 1px solid rgba(0,0,0,.32);
+  box-shadow: none; outline: none; -webkit-tap-highlight-color: transparent;
+  transition: background .25s var(--ease), border-color .25s;
+}
+.check input[type="checkbox"]::after {
+  content: ''; position: absolute; left: 8px; top: 3px; width: 7px; height: 13px;
+  border: solid #fff; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg) scale(0); opacity: 0;
+  transition: transform .25s var(--ease), opacity .2s;
+}
+.check input[type="checkbox"]:checked { background: var(--teja); border-color: var(--teja); box-shadow: none; }
+.check input[type="checkbox"]:checked::after { transform: rotate(45deg) scale(1); opacity: 1; }
+.check input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; box-shadow: none; }
+.check input[type="checkbox"]:focus { box-shadow: none; }

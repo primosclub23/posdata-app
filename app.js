@@ -49,7 +49,7 @@ async function ruta() {
   const h = location.hash || '#/';
   try {
     if (h.startsWith('#invitar/')) return vistaInvitacion(decodeURIComponent(h.slice(9)));
-    if (!user) return h === '#/codigo' ? vistaCodigo() : vistaEntrada();
+    if (!user) return h === '#/codigo' ? vistaCodigo() : vistaEntrada('inicio');
     if (h === '#/codigo') return vistaCodigo();
     if (h.startsWith('#/b/')) return vistaBuzon(h.slice(4));
     return vistaInicio();
@@ -68,18 +68,52 @@ const marca = (titulo, sub) => `<section class="marca">
   <img class="logo" src="posdata-logotipo-oscuro.svg" alt="Posdata" width="210" height="74">
   <div class="lema"><h1>${titulo}</h1><p class="mano">${sub}</p></div>
   <p class="etq pie">Un buzón para cada persona · privado</p></section>`;
-const entrada = (titulo, sub, lado) => { $app.innerHTML = `<div class="entrada">${marca(titulo, sub)}<section class="lado-form"><div class="est">${lado}</div></section></div>`; window.scrollTo(0, 0); };
+const entrada = (titulo, sub, lado) => {
+  const ex = $app.querySelector('.entrada');
+  if (ex && ex.dataset.t === titulo) { ex.querySelector('.est').innerHTML = lado; return; }
+  $app.innerHTML = `<div class="entrada" data-t="${esc(titulo)}">${marca(titulo, sub)}<section class="lado-form"><div class="est">${lado}</div></section></div>`; window.scrollTo(0, 0);
+};
 addEventListener('mousemove', (e) => { const x = e.clientX / innerWidth - .5, y = e.clientY / innerHeight - .5; document.querySelectorAll('.fl').forEach((f) => { const d = +f.dataset.d || 20; f.style.setProperty('--mx', (x * d).toFixed(1)); f.style.setProperty('--my', (y * d).toFixed(1)); }); });
 
 const LEMA = 'Escríbeles hoy lo que querrán leer <em>siempre</em>';
 const SUB = 'Lo que piensas, lo que has aprendido y lo que no quieres que olviden. Lo tendrán siempre, también cuando tú no estés.';
 
-function vistaEntrada(modo = 'entrar', invitada = false) {
+
+// ---------- portada: el sobre que se abre ----------
+const SIN_ANIMAR = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function vistaPortada() {
+  entrada(LEMA, SUB, `
+    <p class="etq">Posdata</p>
+    <h2>Tu primer buzón empieza con <em>una carta</em></h2>
+    <button class="cta" id="crear" aria-label="Crear mi cuenta">
+      <span class="cta-sobre" aria-hidden="true">
+        <span class="cta-dorso"></span>
+        <span class="cta-carta"><b class="mano">Querida Lia,</b><i></i><i></i><i style="width:62%"></i><i></i><i style="width:40%"></i><em class="mano">P. D.: te quiero.</em></span>
+        <span class="cta-frente"></span>
+        <span class="cta-solapa"></span>
+        <u class="cta-sello"></u>
+      </span>
+      <span class="cta-txt">Crear mi cuenta <span class="cta-flecha">→</span></span>
+      <span class="cta-sub">Gratis para empezar · sin tarjeta</span>
+    </button>
+    <div class="pie-form fila entre"><button type="button" class="enlace" id="entrar">Ya tengo cuenta</button><a class="enlace" href="#/codigo">Tengo una tarjeta con código</a></div>`);
+  document.getElementById('entrar').onclick = () => vistaEntrada('entrar');
+  const b = document.getElementById('crear');
+  b.onclick = () => {
+    if (SIN_ANIMAR) return vistaEntrada('crear');
+    if (b.classList.contains('abre')) return;
+    b.classList.add('abre');
+    setTimeout(() => vistaEntrada('crear', false, true), 1250);
+  };
+}
+
+function vistaEntrada(modo = 'entrar', invitada = false, desdeSobre = false) {
+  if (modo === 'inicio') return vistaPortada();
   const nuevo = modo === 'crear';
   entrada(invitada ? 'Te han invitado a un <em>buzón</em>' : LEMA, SUB, `
     <p class="etq">${invitada ? 'Invitación' : nuevo ? 'Crear tu cuenta' : 'Entrar'}</p>
     <h2>${invitada ? 'Crea tu cuenta y <em>entra</em>' : nuevo ? 'Empieza tu <em>primer buzón</em>' : 'Qué bien <em>verte</em>'}</h2>
-    <form id="f">
+    <form id="f" class="${desdeSobre ? 'sale' : ''}">
       <label><span>Correo</span><input type="email" name="correo" required autocomplete="email" placeholder="tu@correo.com"></label>
       <label><span>Contraseña${nuevo ? ' · mínimo 8' : ''}</span><input type="password" name="clave" required minlength="${nuevo ? 8 : 1}" autocomplete="${nuevo ? 'new-password' : 'current-password'}"></label>
       <button class="btn ancho">${nuevo ? 'Crear cuenta' : 'Entrar'}</button>

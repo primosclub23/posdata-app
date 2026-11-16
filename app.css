@@ -87,10 +87,10 @@ form.papel { display: grid; gap: 16px; }
 .pola figcaption { font-family: var(--hand); font-size: 18px; color: var(--ink); text-align: center; padding: 6px 2px 10px; line-height: 1.1; }
 .lado-form { display: grid; place-items: center; padding: clamp(24px, 4vw, 56px); }
 .lado-form .est { width: min(100%, 440px); display: grid; gap: 18px; }
-.lado-form .est > * { animation: sube .8s var(--ease) both; }
+.lado-form .est > * { animation: sube .8s var(--ease) backwards; }
 .lado-form .est > *:nth-child(2) { animation-delay: .07s; } .lado-form .est > *:nth-child(3) { animation-delay: .14s; } .lado-form .est > *:nth-child(n+4) { animation-delay: .21s; }
-.lado-form form.sale { animation: sale 1s var(--ease) both; }
-@keyframes sale { from { opacity: 0; transform: translateY(90px) scale(.94) rotate(-1.5deg); } 55% { opacity: 1; } to { opacity: 1; transform: none; } }
+.lado-form form.sale { animation: sale 1.2s var(--ease) both; }
+@keyframes sale { from { opacity: 0; transform: translateY(26px) scale(.985); } to { opacity: 1; transform: none; } }
 .lado-form h2 { margin-top: -6px; }
 .lado-form form { display: grid; gap: 16px; margin-top: 4px; }
 .lado-form .pie-form { border-top: .5px solid var(--border); padding-top: 16px; font-size: 13px; }
@@ -226,3 +226,9 @@ button.buzon-fila:hover { transform: translateY(-3px) rotate(-.2deg); box-shadow
   .marca .pie { display: none; }
   .cta { padding-top: 6px; }
 }
+
+/* transición suave del sobre al formulario */
+.est.sale-fuera > *:not(.cta) { opacity: 0; transition: opacity .45s ease; }
+.est.sale-fuera > .cta { opacity: 0; transition: opacity .6s ease .15s; }
+.cta.abre .cta-carta { transition: transform 1.3s cubic-bezier(.3,.9,.25,1) .5s; }
+.est.sale-fuera .cta-carta { transform: translateY(-92%) scale(1.22); transition: transform 1s cubic-bezier(.4,0,.2,1); }

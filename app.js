@@ -88,7 +88,7 @@ function vistaPortada() {
     <button class="cta" id="crear" aria-label="Crear mi cuenta">
       <span class="cta-sobre" aria-hidden="true">
         <span class="cta-dorso"></span>
-        <span class="cta-carta"><b class="mano">Querida Lia,</b><i></i><i></i><i style="width:62%"></i><i></i><i style="width:40%"></i><em class="mano">P. D.: te quiero.</em></span>
+        <span class="cta-carta"><b class="mano">Para ti,</b><i></i><i></i><i style="width:62%"></i><i></i><i style="width:40%"></i><em class="mano">P. D.: te quiero.</em></span>
         <span class="cta-frente"></span>
         <span class="cta-solapa"></span>
         <u class="cta-sello"></u>
@@ -103,7 +103,9 @@ function vistaPortada() {
     if (SIN_ANIMAR) return vistaEntrada('crear');
     if (b.classList.contains('abre')) return;
     b.classList.add('abre');
-    setTimeout(() => vistaEntrada('crear', false, true), 1250);
+    const est = b.closest('.est');
+    setTimeout(() => est.classList.add('sale-fuera'), 1150);
+    setTimeout(() => { est.classList.remove('sale-fuera'); vistaEntrada('crear', false, true); }, 1950);
   };
 }
 
@@ -170,7 +172,7 @@ async function vistaInicio() {
     <div class="lista">${filas.map((f) => `<button class="papel buzon-fila" data-id="${f.buzones.id}">${miniSobre}<span class="txt"><h3>El buzón de ${esc(f.buzones.nombre)}</h3></span><span class="sello">${ROL[f.rol] || f.rol}</span></button>`).join('') || '<div class="papel vacio"><span class="mini-sobre"><i></i></span><h3>Todavía no tienes ningún buzón</h3><p class="muted">Crea el primero aquí abajo.</p></div>'}</div>
     ${user.is_anonymous ? '' : `<form class="papel" id="f"><div><p class="etq">Un buzón nuevo</p><h2 style="margin-top:6px">¿Para quién es este <em>buzón</em>?</h2></div>
       <div class="placa"><p class="etq">Se llamará</p><p class="placa-nom" id="pn">El buzón de …</p></div>
-      <label><span>Su nombre</span><input name="nombre" maxlength="40" placeholder="Lia" required autocomplete="off"></label>
+      <label><span>Su nombre</span><input name="nombre" maxlength="40" placeholder="Su nombre" required autocomplete="off"></label>
       <label><span>Su cumpleaños · opcional</span><input type="date" name="cumple"></label>
       <p class="ayuda" style="margin-top:-8px">Sirve para las cartas «para cuando cumplas…».</p>
       <label><span>Cómo firmas tú</span><input name="firma" maxlength="40" placeholder="Mamá"></label>

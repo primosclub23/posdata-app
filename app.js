@@ -47,13 +47,14 @@ function pintaTop() {
 
 // ---------- rutas ----------
 async function ruta() {
+  document.title = 'Posdata';
   pintaTop();
   const h = location.hash || '#/';
   try {
     if (h.startsWith('#invitar/')) return vistaInvitacion(decodeURIComponent(h.slice(9)));
     if (!user) return h === '#/codigo' ? vistaCodigo() : vistaEntrada('inicio');
     if (h === '#/codigo') return vistaCodigo();
-    if (h.startsWith('#/b/')) return vistaBuzon(h.slice(4));
+    if (h.startsWith('#/b/')) { const [bid, extra] = h.slice(4).split('/'); return extra === 'memoria' ? vistaMemoria(bid) : vistaBuzon(bid); }
     return vistaInicio();
   } catch (e) { avisa(msgError(e), true); console.error(e); }
 }
@@ -201,6 +202,7 @@ const TITULOS = {
 };
 const TEMAS_SUGERIDOS = ['Reflexiones', 'Frases', 'Consejos', 'Recuerdos', 'Lo que he aprendido', 'Cuando estés mal', 'Anécdotas'];
 const ICONO = {
+  libro: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3"/><path d="M9 7.5h6"/></svg>',
   foto: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.4"/><path d="M8 5l1.2-2h5.6L16 5"/></svg>',
   voz: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
 };
@@ -360,7 +362,8 @@ async function pintaCartas(panel, buzon, rol, b, temas, yo) {
   const nTema = Object.fromEntries(temas.map((t) => [t.id, t.nombre]));
   const usados = temas.filter((t) => cartas.some((c) => c.tema_id === t.id));
   let q_ = '', tema_ = null;
-  panel.innerHTML = `<div class="filtros"><label class="busca"><span class="sr">Buscar</span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input id="buscar" type="search" placeholder="Buscar en las cartas…" autocomplete="off"></label>
+  panel.innerHTML = `<div class="fila entre mem-acceso"><span class="muted">${cartas.length} carta${cartas.length === 1 ? '' : 's'}</span><a class="herr" href="#/b/${buzon}/memoria">${ICONO.libro} Descargar la memoria</a></div>
+    <div class="filtros"><label class="busca"><span class="sr">Buscar</span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input id="buscar" type="search" placeholder="Buscar en las cartas…" autocomplete="off"></label>
     ${usados.length ? `<div class="chips" id="f-temas"><button class="chip on" data-ft="">Todas</button>${usados.map((t) => `<button class="chip" data-ft="${t.id}">${esc(t.nombre)}</button>`).join('')}</div>` : ''}</div><div id="lista-c" class="lista"></div>`;
   const lista = panel.querySelector('#lista-c');
   const accionesCarta = (c, rol) => {
@@ -457,6 +460,59 @@ function ampliar(src, pie) {
   const o = document.createElement('div'); o.className = 'visor'; o.innerHTML = `<figure class="pol grande"><img src="${src}" alt="${esc(pie || 'Foto')}">${pie ? `<figcaption class="mano">${esc(pie)}</figcaption>` : ''}</figure>`;
   const cierra = () => { o.remove(); removeEventListener('keydown', tecla); }; const tecla = (e) => e.key === 'Escape' && cierra();
   o.onclick = cierra; addEventListener('keydown', tecla); document.body.append(o);
+}
+
+// ---------- la memoria: todo el buzón en un PDF ----------
+async function vistaMemoria(id) {
+  const [buzon] = await leer(sb.from('buzones').select('id, nombre').eq('id', id));
+  const [yo] = await leer(sb.from('miembros').select('rol').eq('buzon_id', id).eq('user_id', user.id));
+  if (!buzon || !yo || yo.rol === 'confianza') { avisa('No tienes acceso a ese buzón.', true); location.hash = '#/'; return; }
+  const esDueña = yo.rol === 'dueno', esReceptor = yo.rol === 'receptor';
+  dentro(`<div class="cab"><a class="volver" href="#/b/${id}" aria-label="Volver">←</a><span class="pildora">El buzón de ${esc(buzon.nombre)}</span></div><div class="centro vista"><p class="etq">Memoria</p><h1>Preparando <em>tu memoria</em></h1><p class="muted">Reuniendo las cartas y las fotos…</p></div>`);
+  try {
+    const [temas, todas] = await Promise.all([
+      leer(sb.from('temas').select('id, nombre').eq('buzon_id', id)),
+      leer(sb.from('cartas').select('id, firma, titulo, dia, estado, candado, abre_el, momento, tema_id, creada_en, partes(orden, texto, posdata, creada_en), adjuntos(id, tipo, ruta, pie, duracion, orden)').eq('buzon_id', id).order('dia', { ascending: true }).order('creada_en', { ascending: true })),
+    ]);
+    const nTema = Object.fromEntries(temas.map((t) => [t.id, t.nombre]));
+    const cartas = todas.filter((c) => c.estado !== 'rechazada' && (c.partes || []).length);
+    const cerradas = todas.filter((c) => c.estado !== 'rechazada' && !(c.partes || []).length).length;
+    const rutas = cartas.flatMap((c) => (c.adjuntos || []).filter((a) => a.tipo === 'foto').map((a) => a.ruta));
+    const url = {};
+    for (let i = 0; i < rutas.length; i += 80) {
+      const { data, error } = await sb.storage.from('adjuntos').createSignedUrls(rutas.slice(i, i + 80), 3600);
+      if (error) throw error; data.forEach((x) => (url[x.path] = x.signedUrl));
+    }
+    const nombre = esc(buzon.nombre);
+    const largo = (d) => fechaLarga(d);
+    const rango = cartas.length ? `${largo(cartas[0].dia)}${cartas.length > 1 ? ' — ' + largo(cartas[cartas.length - 1].dia) : ''}` : '';
+    const hoyTxt = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    const art = (c) => {
+      const partes = (c.partes || []).slice().sort((x, y) => x.orden - y.orden);
+      const fotos = (c.adjuntos || []).filter((a) => a.tipo === 'foto').sort((x, y) => x.orden - y.orden);
+      const voz = (c.adjuntos || []).find((a) => a.tipo === 'audio');
+      const aviso = c.estado === 'pendiente' ? 'Pendiente de aprobar' : (esDueña && c.candado === 'fecha' && c.abre_el > hoyLocal()) ? `Se abrirá el ${largo(c.abre_el)}` : (esDueña && c.candado === 'momento' && !c.abierta_en) ? `Para cuando… ${c.momento}` : '';
+      return `<article class="mem-carta"><p class="etq">${esc(largo(c.dia))}${c.tema_id && nTema[c.tema_id] ? ' · ' + esc(nTema[c.tema_id]) : ''}${aviso ? ' · ' + esc(aviso) : ''}</p>
+        <h2>${esc(c.titulo || 'Sin título')}</h2>
+        <div class="mem-texto">${partes.map((p) => `<div class="mem-parte ${p.posdata ? 'pd' : ''}">${p.posdata ? `<span class="mano pd-et">P. D. · ${esc(fechaCorta(p.creada_en))}</span>` : ''}${esc(p.texto)}</div>`).join('')}</div>
+        ${c.firma ? `<p class="mano mem-firma">${esc(c.firma)}</p>` : ''}
+        ${fotos.length ? `<div class="mem-fotos">${fotos.map((f, i) => `<figure class="pol" style="--r:${GIROS[i % GIROS.length] / 2}deg"><img src="${url[f.ruta]}" alt="${esc(f.pie || 'Foto de la carta')}">${f.pie ? `<figcaption class="mano">${esc(f.pie)}</figcaption>` : ''}</figure>`).join('')}</div>` : ''}
+        ${voz ? `<p class="mem-voz">${ICONO.voz} Nota de voz de ${mmss(voz.duracion || 0)} · se escucha en la app</p>` : ''}</article>`;
+    };
+    document.title = `Posdata · El buzón de ${buzon.nombre}`;
+    dentro(`<div class="memoria">
+      <div class="mem-barra no-print"><a class="volver" href="#/b/${id}" aria-label="Volver">←</a>
+        <div class="mem-barra-txt"><b>Tu memoria está lista</b><span class="muted">${cartas.length} carta${cartas.length === 1 ? '' : 's'}${cerradas ? ` · ${cerradas} aún cerrada${cerradas === 1 ? '' : 's'}, no se incluye${cerradas === 1 ? '' : 'n'}` : ''}. Al pulsar, elige «Guardar como PDF».</span></div>
+        <button class="btn" id="m-pdf" disabled>Preparando…</button></div>
+      <section class="mem-portada"><img class="mem-logo" src="posdata-logotipo-oscuro.svg" alt="Posdata"><div><p class="etq">Una memoria de Posdata</p><h1>El buzón de <em>${nombre}</em></h1>
+        <p class="mano">${esReceptor ? 'Todo lo que se escribió para ti.' : esDueña ? `Todo lo que has escrito para ${nombre}.` : 'Las cartas de este buzón.'}</p></div>
+        <p class="etq">${cartas.length} carta${cartas.length === 1 ? '' : 's'}${rango ? ' · ' + esc(rango) : ''}<br>Preparada el ${esc(hoyTxt)}</p></section>
+      ${cartas.length ? cartas.map(art).join('') : '<article class="mem-carta"><h2>Todavía no hay cartas que mostrar</h2></article>'}
+    </div>`);
+    const imgs = [...$app.querySelectorAll('.memoria img')];
+    await Promise.all(imgs.map((i) => (i.complete ? 0 : new Promise((ok) => { i.onload = i.onerror = ok; }))));
+    const b = document.getElementById('m-pdf'); b.disabled = false; b.textContent = 'Descargar PDF'; b.onclick = () => window.print();
+  } catch (e) { avisa(msgError(e), true); console.error(e); location.hash = '#/b/' + id; }
 }
 
 // ---------- temas (la dueña los crea, renombra y borra) ----------

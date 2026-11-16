@@ -18,7 +18,7 @@ const ERRORES = {
   fecha_no_valida: 'La fecha de apertura tiene que ser posterior a hoy.', momento_vacio: 'Pon un nombre al momento («Cuando estés triste»).',
   llave_no_valida: 'Ese código no abre ningún buzón.', demasiados_intentos: 'Demasiados intentos. Espera unos minutos.',
   invitacion_no_valida: 'La invitación no es válida o ha caducado.', ya_eres_miembro: 'Ya tienes acceso a este buzón.',
-  no_pendiente: 'Esa carta ya no está pendiente.', tema_repetido: 'Ya hay un tema con ese nombre.', tema_vacio: 'Escribe el nombre del tema.', demasiados_temas: 'Ya hay demasiados temas.', tema_no_valido: 'Ese tema ya no existe.',
+  no_pendiente: 'Esa carta ya no está pendiente.', carta_no_editable: 'Esa carta ya no se puede editar: quien la recibe ya puede leerla.', usa_editar: 'Esa carta aún se puede editar directamente.', parte_no_valida: 'Ese texto ya no existe.', texto_largo: 'El texto es demasiado largo.', tema_repetido: 'Ya hay un tema con ese nombre.', tema_vacio: 'Escribe el nombre del tema.', demasiados_temas: 'Ya hay demasiados temas.', tema_no_valido: 'Ese tema ya no existe.',
   demasiados_adjuntos: 'Demasiadas fotos o audios en una carta.', adjunto_no_subido: 'No se ha podido subir un archivo. Inténtalo otra vez.', 'row-level security': 'No puedes subir archivos a este buzón.', 'maximum allowed size': 'Ese archivo pesa demasiado.', 'mime type': 'Ese tipo de archivo no está permitido.', correo_no_valido: 'Ese correo no parece válido.', no_autenticado: 'Entra primero.',
   'Invalid login credentials': 'Correo o contraseña incorrectos.', 'User already registered': 'Ya hay una cuenta con ese correo.',
   'Email not confirmed': 'Confirma tu correo antes de entrar (mira tu bandeja).',
@@ -221,23 +221,26 @@ async function vistaBuzon(id) {
   $app.querySelectorAll('[data-p]').forEach((b) => (b.onclick = () => { pestana = b.dataset.p; vistaBuzon(id); }));
   const panel = document.getElementById('panel');
   if (pestana === 'escribir') pintaEscribir(panel, id, rol, buzon, yo, temas);
-  else if (pestana === 'cartas') await pintaCartas(panel, id, rol, buzon, temas);
+  else if (pestana === 'cartas') await pintaCartas(panel, id, rol, buzon, temas, yo);
   else if (pestana === 'temas') await pintaTemas(panel, id, temas);
   else await pintaFamilia(panel, id);
 }
 
 // ---------- escribir (con polaroids, voz y temas) ----------
 const GIROS = [-6, 5, -3, 7, -8, 4, -5, 6, -2, 8, -7, 3];
-function pintaEscribir(panel, buzon, rol, b, yo, temas) {
+function pintaEscribir(panel, buzon, rol, b, yo, temas, edit = null) {
   const dueña = rol === 'dueno';
   const hoy = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  let fotos = [], voz = null, grabando = null, temaSel = null, cand = 'ninguno';
+  let fotos = [], voz = null, grabando = null, temaSel = edit ? edit.carta.tema_id : null, cand = edit ? edit.carta.candado : 'ninguno';
+  const exFotos = edit ? edit.adjuntos.filter((a) => a.tipo === 'foto').map((a) => ({ ...a })) : [];
+  let exVoz = edit ? edit.adjuntos.find((a) => a.tipo === 'audio') || null : null;
+  const quitar = [];
   panel.innerHTML = `<div class="mesa"><div class="pols" id="pols" aria-label="Fotos de la carta"></div>
     <form class="hoja" id="f">
-      <p class="etq fecha">${esc(hoy)}</p>
+      <p class="etq fecha">${edit ? 'Editar esta carta · ' + esc(fechaLarga(edit.carta.dia)) : esc(hoy)}</p>
       <p class="mano para">Para ${esc(b.nombre)},</p>
-      <input class="titulo" name="titulo" maxlength="80" placeholder="Un título (opcional)">
-      <textarea name="texto" required placeholder="${dueña ? 'Lo que querrías que supiera…' : 'Escribe aquí tu carta…'}"></textarea>
+      <input class="titulo" name="titulo" maxlength="80" placeholder="Un título (opcional)" value="${edit ? esc(edit.carta.titulo) : ''}">
+      ${edit ? edit.partes.map((p, i) => `<label class="parte-ed"><span>${edit.partes.length > 1 ? 'Parte ' + (i + 1) : 'Tu carta'}</span><textarea data-parte="${p.id}" required>${esc(p.texto)}</textarea></label>`).join('') : `<textarea name="texto" required placeholder="${dueña ? 'Lo que querrías que supiera…' : 'Escribe aquí tu carta…'}"></textarea>`}
       ${yo.firma ? `<p class="mano firma-linea">${esc(yo.firma)}</p>` : ''}
       <div class="pie">
         <div><p class="lbl" style="margin-bottom:8px">Tema</p><div class="chips" id="temas"></div></div>
@@ -245,12 +248,13 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas) {
           <div class="fila"><button type="button" class="herr" id="b-foto">${ICONO.foto} Foto</button>${haySoporteDeVoz() ? `<button type="button" class="herr" id="b-voz">${ICONO.voz} Grabar voz</button>` : ''}</div>
           <input type="file" id="i-foto" accept="image/*" multiple hidden>
           <div id="voz-zona"></div></div>
-        ${dueña ? `<div><p class="lbl" style="margin-bottom:8px">Candado</p><div class="chips" id="cands">
+        ${edit ? `${edit.carta.candado === 'fecha' ? `<label><span>Se abre el</span><input type="date" name="abre" value="${esc(edit.carta.abre_el)}"></label>` : ''}${edit.carta.candado === 'momento' ? `<label><span>Para cuando…</span><input name="momento" maxlength="60" value="${esc(edit.carta.momento)}"></label>` : ''}<p class="ayuda">Quien recibe aún no puede leerla, así que puedes cambiarla hasta entonces. Cuando pueda, quedará fija y solo podrás añadirle una P. D.</p>` : dueña ? `<div><p class="lbl" style="margin-bottom:8px">Candado</p><div class="chips" id="cands">
           <button type="button" class="chip on" data-c="ninguno">Sin candado</button><button type="button" class="chip" data-c="fecha">Se abre en una fecha</button><button type="button" class="chip" data-c="momento">Se abre en un momento</button></div>
           <p class="ayuda" id="ay" style="margin-top:8px">Sin candado: es la carta de hoy. Puedes seguir añadiendo y se sella sola a medianoche.</p></div>
           <label id="l-fecha" hidden><span>Se abre el</span><input type="date" name="abre"></label>
           <label id="l-momento" hidden><span>Para cuando…</span><input name="momento" maxlength="60" placeholder="Cuando estés triste"></label>` : `<p class="ayuda">${yo.revisa ? 'Tu carta pasará por revisión antes de sellarse.' : 'Tu carta se sellará al enviarla.'}</p>`}
-        <button class="btn" id="enviar">${dueña ? 'Guardar en el buzón' : 'Enviar la carta'}</button></div></form></div>`;
+        <div class="fila"><button class="btn" id="enviar">${edit ? 'Guardar los cambios' : dueña ? 'Guardar en el buzón' : 'Enviar la carta'}</button>${edit ? '<button type="button" class="enlace" id="cancelar">Cancelar</button>' : ''}</div></div></form></div>`;
+  document.getElementById('cancelar')?.addEventListener('click', () => vistaBuzon(buzon));
   const f = document.getElementById('f');
 
   // temas
@@ -267,15 +271,16 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas) {
   };
   pintaTemasChips();
 
-  // polaroids
+  // polaroids (las que ya tenía la carta y las nuevas)
   const pintaPols = () => {
     const z = document.getElementById('pols');
-    z.innerHTML = fotos.map((p, i) => `<figure class="pol ${i % 2 ? 'der' : 'izq'}" style="--fila:${Math.floor(i / 2)};--r:${GIROS[i % GIROS.length]}deg" data-i="${i}"><button type="button" class="pol-x" aria-label="Quitar esta foto">×</button><img src="${p.url}" alt="Foto ${i + 1}"><figcaption><input class="pol-pie" maxlength="80" placeholder="Un pie de foto…" value="${esc(p.pie)}" aria-label="Pie de la foto ${i + 1}"></figcaption></figure>`).join('');
-    z.classList.toggle('hay', fotos.length > 0);
+    const todos = [...exFotos.map((p, i) => ({ ...p, k: 'e' + i })), ...fotos.map((p, i) => ({ ...p, k: 'n' + i }))];
+    z.innerHTML = todos.map((p, i) => `<figure class="pol ${i % 2 ? 'der' : 'izq'}" style="--fila:${Math.floor(i / 2)};--r:${GIROS[i % GIROS.length]}deg" data-k="${p.k}"><button type="button" class="pol-x" aria-label="Quitar esta foto">×</button><img src="${p.url}" alt="Foto ${i + 1}"><figcaption>${p.k[0] === 'e' ? `<span class="mano">${esc(p.pie)}</span>` : `<input class="pol-pie" maxlength="80" placeholder="Un pie de foto…" value="${esc(p.pie)}" aria-label="Pie de la foto ${i + 1}">`}</figcaption></figure>`).join('');
+    z.classList.toggle('hay', todos.length > 0);
     z.querySelectorAll('.pol').forEach((el) => {
-      const i = +el.dataset.i;
-      el.querySelector('.pol-x').onclick = () => { URL.revokeObjectURL(fotos[i].url); fotos.splice(i, 1); pintaPols(); };
-      el.querySelector('.pol-pie').oninput = (e) => (fotos[i].pie = e.target.value);
+      const k = el.dataset.k, i = +k.slice(1);
+      el.querySelector('.pol-x').onclick = () => { if (k[0] === 'e') { quitar.push(exFotos[i].id); exFotos.splice(i, 1); } else { URL.revokeObjectURL(fotos[i].url); fotos.splice(i, 1); } pintaPols(); };
+      const inp = el.querySelector('.pol-pie'); if (inp) inp.oninput = (e) => (fotos[i].pie = e.target.value);
     });
   };
   const iFoto = document.getElementById('i-foto');
@@ -283,7 +288,7 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas) {
   iFoto.onchange = async () => {
     const nuevas = [...iFoto.files]; iFoto.value = '';
     for (const file of nuevas) {
-      if (fotos.length >= 12) { avisa('Máximo 12 fotos por carta.', true); break; }
+      if (exFotos.length + fotos.length >= 12) { avisa('Máximo 12 fotos por carta.', true); break; }
       try { const r = await reducirFoto(file); fotos.push({ ...r, url: URL.createObjectURL(r.blob), pie: '' }); pintaPols(); } catch (e) { avisa(msgError(e), true); }
     }
   };
@@ -291,6 +296,7 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas) {
   // voz
   const zonaVoz = document.getElementById('voz-zona'), bVoz = document.getElementById('b-voz');
   const pintaVoz = () => {
+    if (exVoz) { zonaVoz.innerHTML = `<div class="voz-fila">${reproductorHtml(exVoz.url, exVoz.duracion, 'Nota de voz')}<button type="button" class="enlace" id="v-quita">Quitar</button></div>`; activaReproductores(zonaVoz); document.getElementById('v-quita').onclick = () => { quitar.push(exVoz.id); exVoz = null; pintaVoz(); }; if (bVoz) bVoz.disabled = true; return; }
     if (voz) { zonaVoz.innerHTML = `<div class="voz-fila">${reproductorHtml(voz.url, voz.duracion, 'Tu nota de voz')}<button type="button" class="enlace" id="v-quita">Quitar</button></div>`; activaReproductores(zonaVoz); document.getElementById('v-quita').onclick = () => { URL.revokeObjectURL(voz.url); voz = null; pintaVoz(); }; if (bVoz) bVoz.disabled = true; }
     else { zonaVoz.innerHTML = ''; if (bVoz) bVoz.disabled = false; }
   };
@@ -306,6 +312,8 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas) {
       voz = { ...r, url: URL.createObjectURL(r.blob) }; pintaVoz();
     } catch (e) { grabando = null; zonaVoz.innerHTML = ''; bVoz.disabled = false; avisa(e?.name === 'NotAllowedError' ? 'Permite el micrófono en el navegador para grabar.' : msgError(e), true); }
   };
+
+  if (edit) { pintaPols(); pintaVoz(); }
 
   // candado
   const AY = { ninguno: 'Sin candado: es la carta de hoy. Puedes seguir añadiendo y se sella sola a medianoche.', fecha: 'Se sella ya y se abrirá solo el día que elijas.', momento: 'Se sella ya. Quien recibe la abrirá cuando llegue ese momento.' };
@@ -326,6 +334,11 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas) {
       for (const p of fotos) await sube(p.blob, p.mime, p.ext, { tipo: 'foto', pie: p.pie });
       if (voz) await sube(voz.blob, voz.mime, voz.ext, { tipo: 'audio', duracion: voz.duracion });
       bt.textContent = 'Guardando…';
+      if (edit) {
+        await rpc('editar_carta', { p_carta: edit.carta.id, p_titulo: f.titulo.value, p_textos: [...f.querySelectorAll('[data-parte]')].map((t) => ({ id: t.dataset.parte, texto: t.value })), p_abre_el: edit.carta.candado === 'fecha' ? f.abre.value || null : null, p_momento: edit.carta.candado === 'momento' ? f.momento.value : null, p_quitar: quitar, p_adjuntos: adjuntos, p_tema_id: temaSel, p_cambiar_tema: true });
+        const rutas = edit.adjuntos.filter((a) => quitar.includes(a.id)).map((a) => a.ruta); if (rutas.length) sb.storage.from('adjuntos').remove(rutas).catch(() => {});
+        avisa('Cambios guardados.'); pestana = 'cartas'; vistaBuzon(buzon); return;
+      }
       await rpc('escribir', { p_buzon: buzon, p_texto: f.texto.value, p_titulo: f.titulo.value, p_candado: cand, p_abre_el: cand === 'fecha' ? f.abre.value || null : null, p_momento: cand === 'momento' ? f.momento.value : null, p_adjuntos: adjuntos, p_tema_id: temaSel });
       fotos.forEach((p) => URL.revokeObjectURL(p.url)); if (voz) URL.revokeObjectURL(voz.url);
       avisa(dueña ? 'Guardado en el buzón.' : 'Enviada.'); pestana = 'cartas'; vistaBuzon(buzon);
@@ -339,8 +352,8 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas) {
 // ---------- cartas: lista con buscador y temas ----------
 const SELLO = { abierta: ['Abierta hoy', ''], pendiente: ['Pendiente', 'pend'], sellada: ['Sellada', 'ok'], rechazada: ['Rechazada', 'pend'] };
 const sinTildes = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-async function pintaCartas(panel, buzon, rol, b, temas) {
-  let q = sb.from('cartas').select('id, autor_id, firma, titulo, dia, estado, candado, abre_el, momento, abierta_en, tema_id, partes(orden, texto), adjuntos(id, tipo)').eq('buzon_id', buzon).order('dia', { ascending: false }).order('creada_en', { ascending: false });
+async function pintaCartas(panel, buzon, rol, b, temas, yo) {
+  let q = sb.from('cartas').select('id, autor_id, firma, titulo, dia, estado, candado, abre_el, momento, abierta_en, tema_id, partes(id, orden, texto, posdata, creada_en), adjuntos(id, tipo)').eq('buzon_id', buzon).order('dia', { ascending: false }).order('creada_en', { ascending: false });
   if (rol === 'escribe') q = q.eq('autor_id', user.id);
   const cartas = await leer(q);
   if (!cartas.length) { panel.innerHTML = `<div class="papel vacio"><span class="mini-sobre"><i></i></span><h3>${rol === 'receptor' ? 'Aún no hay cartas para ti' : 'Todavía no hay cartas'}</h3><p class="muted">${rol === 'receptor' ? 'Cuando se sellen, aparecerán aquí.' : 'La primera siempre es la más difícil. Empieza por una sola línea.'}</p></div>`; return; }
@@ -350,6 +363,14 @@ async function pintaCartas(panel, buzon, rol, b, temas) {
   panel.innerHTML = `<div class="filtros"><label class="busca"><span class="sr">Buscar</span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input id="buscar" type="search" placeholder="Buscar en las cartas…" autocomplete="off"></label>
     ${usados.length ? `<div class="chips" id="f-temas"><button class="chip on" data-ft="">Todas</button>${usados.map((t) => `<button class="chip" data-ft="${t.id}">${esc(t.nombre)}</button>`).join('')}</div>` : ''}</div><div id="lista-c" class="lista"></div>`;
   const lista = panel.querySelector('#lista-c');
+  const accionesCarta = (c, rol) => {
+    const mia = c.autor_id === user.id && (rol === 'dueno' || rol === 'escribe');
+    if (!mia) return '';
+    const editable = c.estado === 'abierta' || c.estado === 'pendiente' || (c.estado === 'sellada' && ((c.candado === 'fecha' && c.abre_el > hoyLocal()) || (c.candado === 'momento' && !c.abierta_en)));
+    if (editable) return `<div class="acciones"><button class="btn peq sec" data-editar="${c.id}">Editar esta carta</button><span class="cand">${c.estado === 'abierta' ? 'Es la carta de hoy: puedes cambiarla hasta que se selle.' : 'Quien la recibe aún no puede leerla.'}</span></div>`;
+    if (rol === 'dueno' && c.estado === 'sellada') return `<div class="acciones" data-zona-pd="${c.id}"><button class="btn peq sec" data-pd="${c.id}">Añadir una P. D.</button><span class="cand">Ya se puede leer, así que queda fija. Una P. D. se añade debajo, con su fecha.</span></div>`;
+    return '';
+  };
   const tarjeta = (c) => {
     const partes = (c.partes || []).sort((x, y) => x.orden - y.orden);
     const cerrada = !partes.length, [etq, cls] = SELLO[c.estado];
@@ -361,7 +382,8 @@ async function pintaCartas(panel, buzon, rol, b, temas) {
       ${cerrada ? `<div class="carta-cab">${miniSobre}<div class="txt"><span class="etq">${fechaLarga(c.dia)}</span><h3>${titulo}</h3>${cand ? `<p class="cand">🔒 ${cand}</p>` : '<p class="cand">🔒 Cerrada</p>'}<div class="marcas">${marcas}</div></div><span class="sello ${cls}">${etq}</span></div>
         ${c.candado === 'momento' && rol === 'receptor' ? `<div class="acciones"><button class="btn peq" data-abrir="${c.id}">Romper el sello</button></div>` : ''}`
       : `<button class="carta-cab" data-abre="${c.id}" aria-expanded="false">${miniSobre}<span class="txt"><span class="etq">${fechaLarga(c.dia)}</span><h3>${titulo}</h3>${cand ? `<p class="cand">${cand}</p>` : ''}<span class="marcas">${marcas}</span></span><span class="sello ${cls}">${etq}</span><span class="flecha">›</span></button>
-        <div class="lee"><div><div class="lectura"><div class="adj" data-adj="${c.id}"></div><div class="texto">${partes.map((p) => `<div class="parte">${esc(p.texto)}</div>`).join('')}${c.firma ? `<p class="mano firma">${esc(c.firma)}</p>` : ''}</div></div>
+        <div class="lee"><div><div class="lectura"><div class="adj" data-adj="${c.id}"></div><div class="texto">${partes.map((p) => `<div class="parte ${p.posdata ? 'pd' : ''}">${p.posdata ? `<span class="mano pd-et">P. D. · ${fechaCorta(p.creada_en)}</span>` : ''}${esc(p.texto)}</div>`).join('')}${c.firma ? `<p class="mano firma">${esc(c.firma)}</p>` : ''}</div></div>
+          ${accionesCarta(c, rol)}
           ${rol === 'dueno' ? `<label class="etiqueta"><span>Tema</span><select data-tema="${c.id}"><option value="">Sin tema</option>${temas.map((t) => `<option value="${t.id}" ${t.id === c.tema_id ? 'selected' : ''}>${esc(t.nombre)}</option>`).join('')}</select></label>` : ''}</div></div>`}
       ${rol === 'dueno' && c.estado === 'pendiente' ? `<div class="acciones"><span class="cand" style="align-self:center">De ${esc(c.firma || 'alguien')}:</span><button class="btn peq" data-ok="${c.id}">Aprobar</button><button class="btn peq sec" data-no="${c.id}">Rechazar</button></div>` : ''}
     </article>`;
@@ -378,6 +400,22 @@ async function pintaCartas(panel, buzon, rol, b, temas) {
     lista.innerHTML = vis.length ? vis.map(tarjeta).join('') : `<div class="papel vacio"><h3>No hay cartas así</h3><p class="muted">Prueba con otra palabra o con otro tema.</p></div>`;
     lista.querySelectorAll('[data-abre]').forEach((h) => (h.onclick = () => { const a = h.closest('.carta'); const on = a.classList.toggle('abierta'); h.setAttribute('aria-expanded', on); if (on) cargaAdjuntos(a); }));
     const quiere = (sel, fn) => lista.querySelectorAll(sel).forEach((x) => (x.onclick = async () => { try { await fn(x); rec(); } catch (e) { avisa(msgError(e), true); } }));
+    lista.querySelectorAll('[data-editar]').forEach((x) => (x.onclick = async () => {
+      x.disabled = true;
+      try {
+        const c = cartas.find((k) => k.id === x.dataset.editar);
+        const adjuntos = await adjuntosConUrl(c.id);
+        window.scrollTo(0, 0);
+        pintaEscribir(panel, buzon, rol, b, yo, temas, { carta: c, partes: (c.partes || []).slice().sort((p, q) => p.orden - q.orden), adjuntos });
+      } catch (e) { x.disabled = false; avisa(msgError(e), true); }
+    }));
+    lista.querySelectorAll('[data-pd]').forEach((x) => (x.onclick = () => {
+      const zona = lista.querySelector(`[data-zona-pd="${x.dataset.pd}"]`);
+      zona.outerHTML = `<form class="pd-form" data-pd-form="${x.dataset.pd}"><label><span>Tu P. D.</span><textarea name="t" required placeholder="P. D.: se me olvidaba decirte que…"></textarea></label><div class="fila"><button class="btn peq">Añadir la P. D.</button><button type="button" class="enlace" data-pd-no>Cancelar</button></div></form>`;
+      const fo = lista.querySelector(`[data-pd-form="${x.dataset.pd}"]`); fo.querySelector('textarea').focus();
+      fo.querySelector('[data-pd-no]').onclick = rec;
+      fo.onsubmit = async (ev) => { ev.preventDefault(); try { await rpc('anadir_posdata', { p_carta: x.dataset.pd, p_texto: fo.t.value }); avisa('P. D. añadida.'); rec(); } catch (e) { avisa(msgError(e), true); } };
+    }));
     quiere('[data-abrir]', (x) => rpc('abrir_momento', { p_carta: x.dataset.abrir }));
     quiere('[data-ok]', async (x) => { await rpc('resolver_carta', { p_carta: x.dataset.ok, p_aprobar: true }); avisa('Aprobada.'); });
     quiere('[data-no]', async (x) => { await rpc('resolver_carta', { p_carta: x.dataset.no, p_aprobar: false }); avisa('Rechazada.'); });
@@ -386,6 +424,17 @@ async function pintaCartas(panel, buzon, rol, b, temas) {
   pinta();
   panel.querySelector('#buscar').oninput = (e) => { q_ = sinTildes(e.target.value).trim(); pinta(); };
   panel.querySelectorAll('[data-ft]').forEach((c) => (c.onclick = () => { tema_ = c.dataset.ft || null; panel.querySelectorAll('[data-ft]').forEach((x) => x.classList.toggle('on', x === c)); pinta(); }));
+}
+
+const fechaCorta = (iso) => new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+const hoyLocal = () => new Date().toLocaleDateString('sv-SE');
+async function adjuntosConUrl(cartaId) {
+  const filas = await leer(sb.from('adjuntos').select('id, tipo, ruta, pie, duracion, orden').eq('carta_id', cartaId).order('orden'));
+  if (!filas.length) return [];
+  const { data, error } = await sb.storage.from('adjuntos').createSignedUrls(filas.map((f) => f.ruta), 3600);
+  if (error) throw error;
+  const u = Object.fromEntries(data.map((x) => [x.path, x.signedUrl]));
+  return filas.map((f) => ({ ...f, url: u[f.ruta] }));
 }
 
 // Fotos y voz de una carta abierta: se piden al desplegarla.

@@ -320,3 +320,22 @@ input[type="date"] { -webkit-appearance: none; appearance: none; min-height: 50p
 .pol.grande { width: min(86vw, 620px); padding: 14px 14px 0; transform: rotate(-1.5deg); animation: sube .5s var(--ease) both; }
 .pol.grande figcaption { font-size: 26px; padding: 12px 8px 18px; }
 .pol.grande img { aspect-ratio: auto; max-height: 72vh; object-fit: contain; }
+
+/* pestañas: siempre en una sola línea */
+.pestanas { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; margin-right: calc(-1 * clamp(18px, 4vw, 32px)); padding-right: clamp(18px, 4vw, 32px); }
+.pestanas::-webkit-scrollbar { display: none; }
+.pestanas .chip { flex: none; white-space: nowrap; }
+@media (max-width: 560px) {
+  .pestanas { gap: 6px; }
+  .pestanas .chip { padding: 9px 12px; font-size: 9px; letter-spacing: .06em; }
+}
+
+/* editar y P. D. */
+.parte-ed { display: grid; gap: 4px; }
+.parte-ed > span { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--hint); padding-left: 14px; }
+.hoja .parte-ed textarea { min-height: 150px; }
+.carta .parte.pd { border-top: 1px dashed var(--accent); margin-top: 22px; padding-top: 14px; }
+.pd-et { display: block; color: var(--teja); font-size: 22px; margin-bottom: 4px; }
+.pd-form { padding: 0 22px 22px; display: grid; gap: 12px; }
+.pd-form textarea { min-height: 110px; font-family: var(--serif); font-size: 17px; line-height: 1.7; }
+.carta .acciones .cand { font-size: 12px; }

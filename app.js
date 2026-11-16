@@ -1,6 +1,7 @@
 // Posdata · app real (versión 1): entrar, crear buzón, escribir, sellar, leer.
 import { createClient } from './vendor/supabase.mjs';
 import { CONFIG } from './config.js';
+import { creaPdf, entregaPdf } from './pdf.js';
 import { reducirFoto, haySoporteDeVoz, empezarGrabacion, mmss, reproductorHtml, activaReproductores } from './media.js';
 
 const $app = document.getElementById('app');
@@ -196,6 +197,7 @@ async function vistaInicio() {
 
 // ---------- tu letra: la fuente de cada persona que escribe ----------
 const letras = new Map(); // id de persona → nombre de la fuente cargada (o null)
+const letraTtf = new Map(); // id de persona → URL firmada de su .ttf (para el PDF)
 const estiloLetra = (uid, extra = '') => { const f = letras.get(uid); return f && usaLetra() ? `font-family:'${f}', var(--hand), cursive;font-size:1.32em;line-height:1.5;${extra}` : ''; };
 const usaLetra = () => localStorage.getItem('posdata.conletra') !== '0';
 async function cargaLetras(ids) {
@@ -206,7 +208,7 @@ async function cargaLetras(ids) {
       const { data } = filas.length ? await sb.storage.from('fuentes').createSignedUrls(filas.map((f) => f.ruta), 3600) : { data: [] };
       const url = Object.fromEntries((data || []).map((x) => [x.path, x.signedUrl]));
       await Promise.all(filas.map(async (f) => {
-        try { const fam = 'L' + f.ruta.split('/')[1].slice(0, 8); const ff = new FontFace(fam, `url(${url[f.ruta]})`); await ff.load(); document.fonts.add(ff); letras.set(f.user_id, fam); }
+        try { if (/\.ttf$/i.test(f.ruta)) letraTtf.set(f.user_id, url[f.ruta]); const fam = 'L' + f.ruta.split('/')[1].slice(0, 8); const ff = new FontFace(fam, `url(${url[f.ruta]})`); await ff.load(); document.fonts.add(ff); letras.set(f.user_id, fam); }
         catch { letras.set(f.user_id, null); }
       }));
     } catch (e) { console.warn('letras no disponibles', e); }
@@ -388,8 +390,7 @@ async function pintaCartas(panel, buzon, rol, b, temas, yo) {
   const nTema = Object.fromEntries(temas.map((t) => [t.id, t.nombre]));
   const usados = temas.filter((t) => cartas.some((c) => c.tema_id === t.id));
   let q_ = '', tema_ = null;
-  panel.innerHTML = `<div class="fila entre mem-acceso"><span class="muted">${cartas.length} carta${cartas.length === 1 ? '' : 's'}</span><a class="herr" href="#/b/${buzon}/memoria">${ICONO.libro} Descargar la memoria</a></div>
-    <div class="filtros"><label class="busca"><span class="sr">Buscar</span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input id="buscar" type="search" placeholder="Buscar en las cartas…" autocomplete="off"></label>
+  panel.innerHTML = `<div class="filtros"><label class="busca"><span class="sr">Buscar</span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input id="buscar" type="search" placeholder="Buscar en las cartas…" autocomplete="off"></label>
     ${[...letras.values()].some(Boolean) ? `<div class="chips"><button class="chip ${usaLetra() ? 'on' : ''}" id="t-letra" aria-pressed="${usaLetra()}">Con la letra de quien escribe</button></div>` : ''}
     ${usados.length ? `<div class="chips" id="f-temas"><button class="chip on" data-ft="">Todas</button>${usados.map((t) => `<button class="chip" data-ft="${t.id}">${esc(t.nombre)}</button>`).join('')}</div>` : ''}</div><div id="lista-c" class="lista"></div>`;
   const lista = panel.querySelector('#lista-c');
@@ -536,8 +537,8 @@ async function vistaMemoria(id) {
     document.title = `Posdata · El buzón de ${buzon.nombre}`;
     dentro(`<div class="memoria">
       <div class="mem-barra no-print"><a class="volver" href="#/b/${id}" aria-label="Volver">←</a>
-        <div class="mem-barra-txt"><b>Tu memoria está lista</b><span class="muted">${cartas.length} carta${cartas.length === 1 ? '' : 's'}${cerradas ? ` · ${cerradas} aún cerrada${cerradas === 1 ? '' : 's'}, no se incluye${cerradas === 1 ? '' : 'n'}` : ''}. Al pulsar, elige «Guardar como PDF».</span></div>
-        <button class="btn" id="m-pdf" disabled>Preparando…</button></div>
+        <div class="mem-barra-txt"><b>Tu memoria está lista</b><span class="muted">${cartas.length} carta${cartas.length === 1 ? '' : 's'}${cerradas ? ` · ${cerradas} aún cerrada${cerradas === 1 ? '' : 's'}, no se incluye${cerradas === 1 ? '' : 'n'}` : ''}. Descárgala como PDF o imprímela.</span></div>
+        <button class="btn" id="m-pdf" disabled>Preparando el PDF…</button><button class="enlace" id="m-imp" type="button">Imprimir</button></div>
       <section class="mem-portada"><img class="mem-logo" src="posdata-logotipo-oscuro.svg" alt="Posdata"><div><p class="etq">Una memoria de Posdata</p><h1>El buzón de <em>${nombre}</em></h1>
         <p class="mano">${esReceptor ? 'Todo lo que se escribió para ti.' : esDueña ? `Todo lo que has escrito para ${nombre}.` : 'Las cartas de este buzón.'}</p></div>
         <p class="etq">${cartas.length} carta${cartas.length === 1 ? '' : 's'}${rango ? ' · ' + esc(rango) : ''}<br>Preparada el ${esc(hoyTxt)}</p></section>
@@ -545,7 +546,30 @@ async function vistaMemoria(id) {
     </div>`);
     const imgs = [...$app.querySelectorAll('.memoria img')];
     await Promise.all(imgs.map((i) => (i.complete ? 0 : new Promise((ok) => { i.onload = i.onerror = ok; }))));
-    const b = document.getElementById('m-pdf'); b.disabled = false; b.textContent = 'Descargar PDF'; b.onclick = () => window.print();
+    document.getElementById('m-imp').onclick = () => window.print();
+    // El PDF de verdad se prepara de antemano, para que al pulsar se descargue (o se comparta) al instante.
+    const b = document.getElementById('m-pdf');
+    try {
+      const cuadrada = async (u) => { const bm = await createImageBitmap(await (await fetch(u)).blob()); const L = Math.min(640, Math.min(bm.width, bm.height)), k = Math.max(L / bm.width, L / bm.height); const c = document.createElement('canvas'); c.width = c.height = L; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, L, L); x.drawImage(bm, (L - bm.width * k) / 2, (L - bm.height * k) / 2, bm.width * k, bm.height * k); return c.toDataURL('image/jpeg', 0.85); };
+      const fuentesAutor = new Map();
+      if (usaLetra()) for (const [uid, u] of letraTtf) if (cartas.some((c) => c.autor_id === uid)) { try { fuentesAutor.set(uid, await (await fetch(u)).arrayBuffer()); } catch {} }
+      const datos = {
+        nombre: buzon.nombre, esDueña, esReceptor, rango, hoyTxt, fuentesAutor, usaLetra: usaLetra(),
+        cartas: await Promise.all(cartas.map(async (c) => {
+          const partes = (c.partes || []).slice().sort((x, y) => x.orden - y.orden);
+          const fotos = (c.adjuntos || []).filter((a) => a.tipo === 'foto').sort((x, y) => x.orden - y.orden);
+          const voz = (c.adjuntos || []).find((a) => a.tipo === 'audio');
+          const aviso = c.estado === 'pendiente' ? 'Pendiente de aprobar' : (esDueña && c.candado === 'fecha' && c.abre_el > hoyLocal()) ? `Se abrirá el ${largo(c.abre_el)}` : (esDueña && c.candado === 'momento' && !c.abierta_en) ? `Para cuando… ${c.momento}` : '';
+          return { titulo: c.titulo, firma: c.firma, autorId: c.autor_id, etiqueta: [largo(c.dia), c.tema_id && nTema[c.tema_id], aviso].filter(Boolean).join(' · '),
+            partes: partes.map((p) => ({ texto: p.texto, posdata: p.posdata, cuando: fechaCorta(p.creada_en) })),
+            fotos: await Promise.all(fotos.map(async (f) => ({ data: await cuadrada(url[f.ruta]), pie: f.pie }))), voz: voz ? mmss(voz.duracion || 0) : '' };
+        })),
+      };
+      const blob = await creaPdf(datos);
+      const archivo = `Posdata - El buzón de ${buzon.nombre}.pdf`.replace(/[\/:*?"<>|]/g, '');
+      b.disabled = false; b.textContent = 'Descargar PDF';
+      b.onclick = async () => { b.disabled = true; try { await entregaPdf(blob, archivo); } catch (e) { avisa('No se ha podido guardar el PDF.', true); console.error(e); } b.disabled = false; };
+    } catch (e) { console.error(e); b.textContent = 'No se ha podido preparar'; avisa('No se ha podido preparar el PDF. Puedes usar «Imprimir».', true); }
   } catch (e) { avisa(msgError(e), true); console.error(e); location.hash = '#/b/' + id; }
 }
 

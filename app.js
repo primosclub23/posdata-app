@@ -38,15 +38,17 @@ async function rpc(nombre, args = {}) { const { data, error } = await sb.rpc(nom
 async function leer(q) { const { data, error } = await q; if (error) throw error; return data; }
 
 // ---------- cabecera ----------
+let nombrePerfil = null; // null = aún sin cargar
 function pintaTop() {
   if (!user) { $top.innerHTML = ''; return; }
-  const ini = user.is_anonymous ? '' : esc((user.email || '?').trim().charAt(0).toUpperCase());
+  const ini = user.is_anonymous ? '' : esc(((nombrePerfil || '').trim() || (user.email || '?').trim()).charAt(0).toUpperCase());
   $top.innerHTML = `<a href="#/"><img src="posdata-logotipo-oscuro.svg" alt="Posdata"></a><nav><a class="avatar-btn" href="#/perfil" aria-label="Mi perfil" title="Mi perfil">${ini || ICONO.persona}</a></nav>`;
 }
 
 // ---------- rutas ----------
 async function ruta() {
   document.title = 'Posdata';
+  if (user && !user.is_anonymous && nombrePerfil === null) { try { const [f] = await leer(sb.from('profiles').select('nombre').eq('id', user.id)); nombrePerfil = (f && f.nombre) || ''; } catch { nombrePerfil = ''; } }
   pintaTop();
   const h = location.hash || '#/';
   try {
@@ -581,7 +583,7 @@ async function vistaPerfil() {
     <div class="fila"><button class="btn sec" id="p-salir">Cerrar sesión</button></div>`);
   document.getElementById('p-salir').onclick = async () => { await sb.auth.signOut(); location.hash = '#/'; };
   if (anon) return;
-  document.getElementById('f-nombre').onsubmit = async (ev) => { ev.preventDefault(); const { error } = await sb.from('profiles').update({ nombre: ev.target.n.value.trim().slice(0, 60) }).eq('id', user.id); if (error) return avisa(msgError(error), true); avisa('Guardado.'); vistaPerfil(); };
+  document.getElementById('f-nombre').onsubmit = async (ev) => { ev.preventDefault(); const { error } = await sb.from('profiles').update({ nombre: ev.target.n.value.trim().slice(0, 60) }).eq('id', user.id); if (error) return avisa(msgError(error), true); nombrePerfil = ev.target.n.value.trim().slice(0, 60); pintaTop(); avisa('Guardado.'); vistaPerfil(); };
   document.getElementById('f-clave').onsubmit = async (ev) => { ev.preventDefault(); const { error } = await sb.auth.updateUser({ password: ev.target.c.value }); if (error) return avisa(msgError(error), true); ev.target.reset(); avisa('Contraseña cambiada.'); };
   // la letra
   const muestra = document.getElementById('l-muestra');
@@ -664,7 +666,7 @@ async function pintaFamilia(panel, buzon) {
 }
 
 // ---------- arranque ----------
-sb.auth.onAuthStateChange((ev, s) => { if (ev === 'INITIAL_SESSION') return; const antes = user?.id; user = s?.user ?? null; if (antes !== user?.id) ruta(); });
+sb.auth.onAuthStateChange((ev, s) => { if (ev === 'INITIAL_SESSION') return; const antes = user?.id; user = s?.user ?? null; if (antes !== user?.id) { nombrePerfil = null; ruta(); } });
 const { data } = await sb.auth.getSession();
 user = data.session?.user ?? null;
 ruta();

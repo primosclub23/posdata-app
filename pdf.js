@@ -23,6 +23,7 @@ export async function creaPdf(datos) {
     traeFuente(doc, 'fonts/PlayfairDisplay_700Bold.ttf', 'Playfair', 'bold'),
     traeFuente(doc, 'fonts/PlayfairDisplay_400Regular_Italic.ttf', 'Playfair', 'italic'),
     traeFuente(doc, 'fonts/Caveat_400Regular.ttf', 'Caveat', 'normal'),
+    datos.usaMaquina ? traeFuente(doc, 'fonts/SpecialElite_400Regular.ttf', 'Maquina', 'normal') : null,
   ]);
   // letra propia de cada autor (solo .ttf; si no se puede leer, se usa la tipografía normal)
   const letra = new Map();
@@ -66,8 +67,8 @@ export async function creaPdf(datos) {
     doc.text(doc.splitTextToSize(c.etiqueta.toUpperCase(), ancho), M.l, y, { charSpace: 0.4 }); y += 8;
     doc.setFont('Playfair', 'bold'); doc.setFontSize(24); color(COL.texto);
     const tit = doc.splitTextToSize(c.titulo || 'Sin título', ancho); doc.text(tit, M.l, y + 4); y += 4 + tit.length * 10 + 3;
-    const fam = letra.get(c.autorId) && datos.usaLetra ? letra.get(c.autorId) : 'Playfair', manual = fam !== 'Playfair';
-    const pt = manual ? 17 : 11.5, lh = mm(pt) * (manual ? 1.45 : 1.7);
+    const propia = letra.get(c.autorId) && datos.usaLetra, fam = propia ? letra.get(c.autorId) : datos.usaMaquina ? 'Maquina' : 'Playfair';
+    const pt = propia ? 17 : datos.usaMaquina ? 10.5 : 11.5, lh = mm(pt) * (propia ? 1.45 : datos.usaMaquina ? 1.85 : 1.7);
     c.partes.forEach((p, i) => {
       if (p.posdata) {
         necesita(26); y += 4; doc.setDrawColor(...COL.acento); doc.setLineDashPattern([1.2, 1.2], 0); doc.line(M.l, y, A4.w - M.r, y); doc.setLineDashPattern([], 0); y += 7;
@@ -75,7 +76,7 @@ export async function creaPdf(datos) {
       } else if (i) y += 3;
       texto(p.texto, fam, 'normal', pt, COL.texto, lh);
     });
-    if (c.firma) { necesita(16); y += 4; doc.setFont(letra.get(c.autorId) && datos.usaLetra ? fam : 'Caveat', 'normal'); doc.setFontSize(20); color(COL.tinta); doc.text(c.firma, A4.w - M.r, y + 6, { align: 'right' }); y += 14; }
+    if (c.firma) { necesita(16); y += 4; doc.setFont(propia ? fam : 'Caveat', 'normal'); doc.setFontSize(20); color(COL.tinta); doc.text(c.firma, A4.w - M.r, y + 6, { align: 'right' }); y += 14; }
     // polaroids debajo del texto
     if (c.fotos.length) {
       const pw = 50, marco = 3, foto = pw - marco * 2, pie = 11, ph = marco + foto + pie, hueco = (ancho - pw * 3) / 2;

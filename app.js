@@ -2,6 +2,7 @@
 import { createClient } from './vendor/supabase.mjs';
 import { CONFIG } from './config.js';
 import { creaPdf, entregaPdf } from './pdf.js';
+import { conMaquina, sonidoActivo, fijaSonido, maquinaActiva, fijaMaquina, aplicaMaquina, suena } from './sonido.js';
 import { reducirFoto, haySoporteDeVoz, empezarGrabacion, mmss, reproductorHtml, activaReproductores } from './media.js';
 
 const $app = document.getElementById('app');
@@ -28,6 +29,7 @@ const msgError = (e) => { const t = e?.message || String(e); const k = Object.ke
 let tAviso;
 function avisa(t, mal = false) { $aviso.textContent = t; $aviso.className = 'aviso' + (mal ? ' mal' : ''); $aviso.hidden = false; clearTimeout(tAviso); tAviso = setTimeout(() => ($aviso.hidden = true), 4200); }
 
+aplicaMaquina();
 if (!CONFIG.url || !CONFIG.anonKey) {
   $app.innerHTML = `<div class="cuerpo-app"><section class="vista centro"><h1>Falta <em>conectar</em></h1><p class="muted">Abre <code>app/config.js</code> y pega la URL y la clave «anon public» de tu proyecto Supabase.</p></section></div>`;
   throw new Error('config vacía');
@@ -43,7 +45,7 @@ let nombrePerfil = null; // null = aún sin cargar
 function pintaTop() {
   if (!user) { $top.innerHTML = ''; return; }
   const ini = user.is_anonymous ? '' : esc(((nombrePerfil || '').trim() || (user.email || '?').trim()).charAt(0).toUpperCase());
-  $top.innerHTML = `<a href="#/"><img src="posdata-logotipo-oscuro.svg" alt="Posdata"></a><nav><a class="avatar-btn" href="#/perfil" aria-label="Mi perfil" title="Mi perfil">${ini || ICONO.persona}</a></nav>`;
+  $top.innerHTML = `<a href="#/" class="logo-enlace"><img class="logo-os" src="posdata-logotipo-oscuro.svg" alt="Posdata"><img class="logo-cl" src="posdata-logotipo-claro.svg" alt="" aria-hidden="true"></a><nav><a class="avatar-btn" href="#/perfil" aria-label="Mi perfil" title="Mi perfil">${ini || ICONO.persona}</a></nav>`;
 }
 
 // ---------- rutas ----------
@@ -71,7 +73,7 @@ const marca = (titulo, sub) => `<section class="marca">
     <div class="fl fl-sobre2" data-d="14"><div class="sobre sobre-s"><i></i></div></div>
     <div class="fl fl-nota" data-d="20"><p class="mano">P. D.: te quiero.</p></div>
   </div>
-  <img class="logo" src="posdata-logotipo-oscuro.svg" alt="Posdata" width="210" height="74">
+  <img class="logo logo-os" src="posdata-logotipo-oscuro.svg" alt="Posdata" width="210" height="74"><img class="logo logo-cl" src="posdata-logotipo-claro.svg" alt="" aria-hidden="true" width="210" height="74">
   <div class="lema"><h1>${titulo}</h1><p class="mano">${sub}</p></div>
   <p class="etq pie">Un buzón para cada persona · privado</p></section>`;
 const entrada = (titulo, sub, lado) => {
@@ -227,6 +229,8 @@ const TITULOS = {
 };
 const TEMAS_SUGERIDOS = ['Reflexiones', 'Frases', 'Consejos', 'Recuerdos', 'Lo que he aprendido', 'Cuando estés mal', 'Anécdotas'];
 const ICONO = {
+  sonido: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>',
+  silencio: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>',
   persona: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.5 20c.9-3.6 3.9-5.6 7.5-5.6s6.6 2 7.5 5.6"/></svg>',
   libro: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3"/><path d="M9 7.5h6"/></svg>',
   foto: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.4"/><path d="M8 5l1.2-2h5.6L16 5"/></svg>',
@@ -284,6 +288,12 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas, edit = null) {
         <div class="fila"><button class="btn" id="enviar">${edit ? 'Guardar los cambios' : dueña ? 'Guardar en el buzón' : 'Enviar la carta'}</button>${edit ? '<button type="button" class="enlace" id="cancelar">Cancelar</button>' : ''}</div></div></form></div>`;
   document.getElementById('cancelar')?.addEventListener('click', () => vistaBuzon(buzon));
   const f = document.getElementById('f');
+  // la máquina de escribir: suena al teclear (y se puede apagar aquí mismo)
+  f.querySelectorAll('textarea, input.titulo').forEach((el) => conMaquina(el, { margen: el.tagName === 'TEXTAREA' ? 58 : 0 }));
+  f.insertAdjacentHTML('afterbegin', `<button type="button" class="sonido-btn" id="b-sonido"></button>`);
+  const btS = document.getElementById('b-sonido');
+  const pintaS = () => { const on = sonidoActivo(); btS.innerHTML = on ? ICONO.sonido : ICONO.silencio; btS.setAttribute('aria-pressed', on); btS.setAttribute('aria-label', on ? 'Silenciar la máquina de escribir' : 'Activar el sonido de la máquina de escribir'); btS.title = on ? 'Sonido de la máquina: sí' : 'Sonido de la máquina: no'; };
+  pintaS(); btS.onclick = () => { fijaSonido(!sonidoActivo()); pintaS(); suena('retorno'); };
 
   // temas
   const pintaTemasChips = () => {
@@ -443,7 +453,7 @@ async function pintaCartas(panel, buzon, rol, b, temas, yo) {
     lista.querySelectorAll('[data-pd]').forEach((x) => (x.onclick = () => {
       const zona = lista.querySelector(`[data-zona-pd="${x.dataset.pd}"]`);
       zona.outerHTML = `<form class="pd-form" data-pd-form="${x.dataset.pd}"><label><span>Tu P. D.</span><textarea name="t" required placeholder="P. D.: se me olvidaba decirte que…"></textarea></label><div class="fila"><button class="btn peq">Añadir la P. D.</button><button type="button" class="enlace" data-pd-no>Cancelar</button></div></form>`;
-      const fo = lista.querySelector(`[data-pd-form="${x.dataset.pd}"]`); fo.querySelector('textarea').focus();
+      const fo = lista.querySelector(`[data-pd-form="${x.dataset.pd}"]`); conMaquina(fo.querySelector('textarea'), { margen: 58 }); fo.querySelector('textarea').focus();
       fo.querySelector('[data-pd-no]').onclick = rec;
       fo.onsubmit = async (ev) => { ev.preventDefault(); try { await rpc('anadir_posdata', { p_carta: x.dataset.pd, p_texto: fo.t.value }); avisa('P. D. añadida.'); rec(); } catch (e) { avisa(msgError(e), true); } };
     }));
@@ -539,7 +549,7 @@ async function vistaMemoria(id) {
       <div class="mem-barra no-print"><a class="volver" href="#/b/${id}" aria-label="Volver">←</a>
         <div class="mem-barra-txt"><b>Tu memoria está lista</b><span class="muted">${cartas.length} carta${cartas.length === 1 ? '' : 's'}${cerradas ? ` · ${cerradas} aún cerrada${cerradas === 1 ? '' : 's'}, no se incluye${cerradas === 1 ? '' : 'n'}` : ''}. Descárgala como PDF o imprímela.</span></div>
         <button class="btn" id="m-pdf" disabled>Preparando el PDF…</button><button class="enlace" id="m-imp" type="button">Imprimir</button></div>
-      <section class="mem-portada"><img class="mem-logo" src="posdata-logotipo-oscuro.svg" alt="Posdata"><div><p class="etq">Una memoria de Posdata</p><h1>El buzón de <em>${nombre}</em></h1>
+      <section class="mem-portada"><img class="mem-logo logo-os" src="posdata-logotipo-oscuro.svg" alt="Posdata"><img class="mem-logo logo-cl" src="posdata-logotipo-claro.svg" alt="" aria-hidden="true"><div><p class="etq">Una memoria de Posdata</p><h1>El buzón de <em>${nombre}</em></h1>
         <p class="mano">${esReceptor ? 'Todo lo que se escribió para ti.' : esDueña ? `Todo lo que has escrito para ${nombre}.` : 'Las cartas de este buzón.'}</p></div>
         <p class="etq">${cartas.length} carta${cartas.length === 1 ? '' : 's'}${rango ? ' · ' + esc(rango) : ''}<br>Preparada el ${esc(hoyTxt)}</p></section>
       ${cartas.length ? cartas.map(art).join('') : '<article class="mem-carta"><h2>Todavía no hay cartas que mostrar</h2></article>'}
@@ -554,7 +564,7 @@ async function vistaMemoria(id) {
       const fuentesAutor = new Map();
       if (usaLetra()) for (const [uid, u] of letraTtf) if (cartas.some((c) => c.autor_id === uid)) { try { fuentesAutor.set(uid, await (await fetch(u)).arrayBuffer()); } catch {} }
       const datos = {
-        nombre: buzon.nombre, esDueña, esReceptor, rango, hoyTxt, fuentesAutor, usaLetra: usaLetra(),
+        nombre: buzon.nombre, esDueña, esReceptor, rango, hoyTxt, fuentesAutor, usaLetra: usaLetra(), usaMaquina: maquinaActiva(),
         cartas: await Promise.all(cartas.map(async (c) => {
           const partes = (c.partes || []).slice().sort((x, y) => x.orden - y.orden);
           const fotos = (c.adjuntos || []).filter((a) => a.tipo === 'foto').sort((x, y) => x.orden - y.orden);
@@ -575,10 +585,21 @@ async function vistaMemoria(id) {
 
 // ---------- perfil: cuenta, plan, tu letra, buzones y seguridad ----------
 const MB = 1024 * 1024;
+const AVISOS = [
+  ['sellada', 'La carta del día se ha sellado', 'A las 23:59', 1, 0, false],
+  ['cumple', 'Recordatorio de cumpleaños', 'Una semana antes, para escribirle', 1, 0, false],
+  ['mes', 'Resumen del mes', 'Cuántas cartas has escrito', 0, 0, false],
+  ['aprobar', 'Una carta espera tu visto bueno', 'De quien invitaste', 1, 1, true],
+  ['acepta', 'Alguien acepta tu invitación', 'Y ya puede escribirle', 1, 0, false],
+  ['entrega', 'Se entrega una carta programada', 'Para saber que llegó', 1, 1, false],
+  ['abre', 'Quien recibe abre una carta tuya', 'Solo si tú quieres saberlo', 0, 0, false],
+  ['nov', 'Novedades de Posdata', 'Pocas y con cuidado', 0, 0, false],
+];
+
 async function vistaPerfil() {
   const anon = !!user.is_anonymous;
-  let p = { nombre: '', plan: 'prueba', plan_hasta: null };
-  try { const [fila] = await leer(sb.from('profiles').select('nombre, plan, plan_hasta').eq('id', user.id)); if (fila) p = fila; } catch (e) { try { const [f2] = await leer(sb.from('profiles').select('nombre').eq('id', user.id)); if (f2) p.nombre = f2.nombre; } catch {} }
+  let p = { nombre: '', plan: 'prueba', plan_hasta: null, avisos: {} };
+  for (const cols of ['nombre, plan, plan_hasta, avisos', 'nombre, plan, plan_hasta', 'nombre']) { try { const [fila] = await leer(sb.from('profiles').select(cols).eq('id', user.id)); if (fila) { p = { ...p, ...fila }; break; } } catch { /* esa columna aún no existe */ } }
   const filas = await leer(sb.from('miembros').select('rol, buzones(id, nombre)').eq('user_id', user.id).eq('estado', 'activa'));
   let tuFuente = null;
   if (!anon) { try { [tuFuente] = await leer(sb.from('fuentes').select('ruta, nombre').eq('user_id', user.id)); } catch {} }
@@ -601,14 +622,34 @@ async function vistaPerfil() {
       <p class="letra-muestra" id="l-muestra" hidden>Así se verá cada carta que escribas. Querida mía, hoy quería decirte algo.</p>
       <div class="fila"><label class="btn peq sec" for="l-archivo" id="l-sube">${tuFuente ? 'Cambiar mi letra' : 'Cargar mi letra'}</label><input type="file" id="l-archivo" accept=".ttf,.otf,.woff,.woff2" hidden>${tuFuente ? '<button class="enlace" id="l-quita">Quitar mi letra</button>' : ''}</div>
       <details class="como"><summary>¿Cómo consigo mi letra?</summary><ol><li>En <b>calligraphr.com</b> descarga la plantilla, imprímela y escribe a mano cada letra.</li><li>Escanea o haz una foto de la plantilla y súbela. Calligraphr crea tu fuente.</li><li>Descárgala como <b>.ttf</b> y cárgala aquí (hasta 3 MB).</li></ol></details></div>`}
+    ${anon ? '' : `<div class="papel" id="escritura"><div><p class="etq">Escribir</p><h3 style="margin-top:4px">La máquina de escribir</h3></div>
+      <p class="muted">Todo lo que escribes en una carta sale con la tipografía de una máquina de escribir antigua, y suena como ella.</p>
+      <label class="interruptor"><span><b>Tipografía de máquina de escribir</b><em class="etq">Al escribir y al leer las cartas</em></span><input type="checkbox" id="sw-maquina" ${maquinaActiva() ? 'checked' : ''}></label>
+      <label class="interruptor"><span><b>Sonido de las teclas</b><em class="etq">Teclas, espacio, timbre y retorno de carro</em></span><input type="checkbox" id="sw-sonido" ${sonidoActivo() ? 'checked' : ''}></label>
+      <p class="maquina-prueba" id="m-prueba" tabindex="0">Pulsa aquí y prueba el sonido.</p></div>
+    <div class="papel" id="avisos"><div><p class="etq">Avisos</p><h3 style="margin-top:4px">Qué te avisa</h3></div><p class="muted">Tú eliges qué llega y por dónde.</p>
+      <div class="av-cab"><span></span><span class="etq">Móvil</span><span class="etq">Correo</span></div>
+      ${AVISOS.map(([id, t, d, m, c, fijo]) => { const a = (p.avisos || {})[id] || {}; return `<div class="av-fila"><div><b>${t}</b><span class="etq">${d}${fijo ? ' · no se puede quitar' : ''}</span></div>${[['movil', m, 'en el móvil'], ['correo', c, 'por correo']].map(([k, def, txt]) => `<label class="tick"><input type="checkbox" data-av="${id}:${k}" ${(a[k] ?? !!def) || fijo ? 'checked' : ''} ${fijo ? 'disabled' : ''} aria-label="${t} ${txt}"></label>`).join('')}</div>`; }).join('')}
+      <p class="muted nota-av">Por ahora solo guardamos tus preferencias: los avisos empezarán a enviarse más adelante. Los que no se pueden quitar es porque, si no te enteras, una carta se queda esperando.</p></div>`}
     <div class="papel"><p class="etq">Tus buzones</p>${filas.length ? filas.map((f) => `<div class="persona"><span class="avatar">${inicial(f.buzones.nombre)}</span><div class="txt"><b>El buzón de ${esc(f.buzones.nombre)}</b><br><span class="muted">${ROL[f.rol] || f.rol}</span></div>${f.rol !== 'confianza' ? `<a class="enlace" href="#/b/${f.buzones.id}/memoria">Descargar memoria</a>` : ''}<a class="enlace" href="#/b/${f.buzones.id}">Abrir</a></div>`).join('') : '<p class="muted" style="margin-top:8px">Todavía no tienes ningún buzón.</p>'}</div>
     ${anon ? '' : `<form class="papel" id="f-clave"><div><p class="etq">Seguridad</p><h3 style="margin-top:4px">Cambiar la contraseña</h3></div><label><span>Nueva contraseña · mínimo 8</span><input type="password" name="c" minlength="8" required autocomplete="new-password"></label><div><button class="btn peq">Cambiar</button></div></form>
-    <div class="papel proximamente"><p class="etq">Próximamente</p><ul><li>Avisos por correo y móvil, una casilla por función</li><li>Copia automática en Google Drive</li><li>La memoria por correo</li><li>Libro impreso</li><li>Cintas de canciones</li></ul></div>`}
+    <div class="papel proximamente"><p class="etq">Próximamente</p><ul><li>Copia automática en Google Drive</li><li>La memoria por correo</li><li>Libro impreso</li><li>Cintas de canciones</li></ul></div>`}
     <div class="fila"><button class="btn sec" id="p-salir">Cerrar sesión</button></div>`);
   document.getElementById('p-salir').onclick = async () => { await sb.auth.signOut(); location.hash = '#/'; };
   if (anon) return;
   document.getElementById('f-nombre').onsubmit = async (ev) => { ev.preventDefault(); const { error } = await sb.from('profiles').update({ nombre: ev.target.n.value.trim().slice(0, 60) }).eq('id', user.id); if (error) return avisa(msgError(error), true); nombrePerfil = ev.target.n.value.trim().slice(0, 60); pintaTop(); avisa('Guardado.'); vistaPerfil(); };
   document.getElementById('f-clave').onsubmit = async (ev) => { ev.preventDefault(); const { error } = await sb.auth.updateUser({ password: ev.target.c.value }); if (error) return avisa(msgError(error), true); ev.target.reset(); avisa('Contraseña cambiada.'); };
+  // máquina de escribir y avisos
+  document.getElementById('sw-maquina').onchange = (e) => { fijaMaquina(e.target.checked); };
+  document.getElementById('sw-sonido').onchange = (e) => { fijaSonido(e.target.checked); if (e.target.checked) suena('retorno'); };
+  const prueba = document.getElementById('m-prueba'); conMaquina(prueba); prueba.contentEditable = 'true'; prueba.spellcheck = false;
+  let tAv; document.getElementById('avisos').addEventListener('change', (e) => {
+    if (!e.target.dataset.av) return; clearTimeout(tAv);
+    tAv = setTimeout(async () => {
+      const o = {}; document.querySelectorAll('#avisos [data-av]').forEach((c) => { const [id, k] = c.dataset.av.split(':'); (o[id] ||= {})[k] = c.checked; });
+      try { await rpc('guardar_avisos', { p_avisos: o }); avisa('Guardado.'); } catch (er) { avisa(msgError(er), true); }
+    }, 350);
+  });
   // la letra
   const muestra = document.getElementById('l-muestra');
   const enseña = async () => { const m = await cargaLetras([user.id]); const fam = m.get(user.id); if (fam) { muestra.hidden = false; muestra.style.fontFamily = `'${fam}', var(--hand)`; } };

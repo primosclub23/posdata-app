@@ -265,11 +265,11 @@ const luz = { brillo: () => num('posdata.luz.brillo', 70), calidez: () => num('p
 const HACES = [['amplio', 'Amplio'], ['medio', 'Medio'], ['estrecho', 'Estrecho'], ['foco', 'Foco'], ['difuso', 'Difuso']];
 // La carta solo se ve donde llega el haz: una sombra con un agujero con la forma del haz (y bordes suaves).
 const FORMA_HAZ = { medio: [14, 115], amplio: [30, 140], estrecho: [7, 65], foco: 'e62,85', difuso: 'e125,105' };
-function mascaraHaz(h) {
+function mascaraHaz(h, inv = false) {
   const f = FORMA_HAZ[h] || FORMA_HAZ.medio;
   const capa = (k) => { const e = .72 + k * .05; return typeof f === 'string' ? `<ellipse cx="150" cy="0" rx="${(+f.slice(1).split(',')[0] * e).toFixed(1)}" ry="${(+f.slice(1).split(',')[1] * e).toFixed(1)}"/>` : (([ht, hb]) => { const t = ht * e, w = (ht + (hb - ht) * 1.2) * e; return `<polygon points="${150 - t},0 ${150 + t},0 ${150 + w},150 ${150 - w},150"/>`; })(f); };
   const forma = `<g fill="url(#g)">${capa(0).replace('/>', ' fill-opacity="1"/>')}</g><g fill="url(#g)" fill-opacity=".13">${Array.from({ length: 13 }, (_, k) => capa(k + 2)).join('')}</g>`;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 150" preserveAspectRatio="none"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000"/><stop offset=".6" stop-color="#1a1a1a"/><stop offset="1" stop-color="#454545"/></linearGradient><mask id="m"><rect width="300" height="150" fill="#fff"/>${forma}</mask></defs><rect width="300" height="150" fill="#000" mask="url(#m)"/></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 150" preserveAspectRatio="none"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">${inv ? '<stop offset="0" stop-color="#fff"/><stop offset=".6" stop-color="#e0e0e0"/><stop offset="1" stop-color="#6a6a6a"/>' : '<stop offset="0" stop-color="#000"/><stop offset=".6" stop-color="#1a1a1a"/><stop offset="1" stop-color="#454545"/>'}</linearGradient><mask id="m"><rect width="300" height="150" fill="${inv ? '#000' : '#fff'}"/>${forma}</mask></defs><rect width="300" height="150" fill="#000" mask="url(#m)"/></svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 function aplicaLuz() {
@@ -278,7 +278,7 @@ function aplicaLuz() {
   r.setProperty('--luz-rgb', `255,${mezcla(246, 168)},${mezcla(230, 78)}`);          // de blanco neutro a ámbar cálido
   r.setProperty('--luz-a1', (.14 + .58 * b).toFixed(2)); r.setProperty('--luz-a2', (.07 + .3 * b).toFixed(2)); r.setProperty('--luz-a3', (.02 + .12 * b).toFixed(2));
   r.setProperty('--hoja-brillo', (.8 + .2 * b).toFixed(2)); r.setProperty('--hoja-sepia', (.02 + .16 * w).toFixed(2));
-  r.setProperty('--sombra-a', (.9 - .42 * b).toFixed(2)); r.setProperty('--mascara-haz', mascaraHaz(luz.haz()));
+  r.setProperty('--sombra-a', (.9 - .42 * b).toFixed(2)); r.setProperty('--mascara-haz', mascaraHaz(luz.haz())); r.setProperty('--mascara-luz', mascaraHaz(luz.haz(), true));
   document.querySelectorAll('[data-haz]').forEach((e) => e.setAttribute('data-haz', luz.haz()));
 }
 aplicaLuz();
@@ -324,6 +324,7 @@ function montaLampara() {
   f.innerHTML = `<div class="lampara">${LAMPARA_SVG('')}</div><p class="lampara-pista">Tira del cordón (o pulsa Esc) para apagar la luz y volver</p>`;
   document.body.append(f);
   const sh = document.createElement('div'); sh.id = 'sombra-haz'; sh.setAttribute('aria-hidden', 'true'); sh.innerHTML = '<div class="sombra-haz"></div>'; document.body.append(sh);
+  const lz = document.createElement('div'); lz.id = 'luz-haz'; lz.setAttribute('aria-hidden', 'true'); lz.innerHTML = '<div class="sombra-haz"></div>'; document.body.append(lz);
   const apaga = () => { fijaLampara(false); };
   f.querySelector('#cordon').addEventListener('click', apaga);
   f.querySelector('#cordon').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); apaga(); } });

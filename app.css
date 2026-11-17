@@ -697,8 +697,7 @@ body.sin-maquina { --maquina: 'Playfair Display', Georgia, serif; --maquina-pt: 
 .lampara-btn { position: absolute !important; top: 14px; right: 62px; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); border: .5px solid var(--border); color: var(--muted); transition: all .3s var(--ease); z-index: 2; }
 .lampara-btn:hover { color: var(--text); border-color: var(--accent); transform: translateY(-1px); }
 .lampara-btn[aria-pressed="true"] { background: #F3C77A; color: #5A3A10; border-color: #D9A44A; box-shadow: 0 0 14px rgba(243,199,122,.7); }
-#noche, #lampara-frente { --lx: 80%; }
-@media (min-width: 1000px) { #noche, #lampara-frente { --lx: calc(50% + 430px); } }
+#noche, #lampara-frente { --lx: 50%; }
 #noche { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; opacity: 0; visibility: hidden; transition: opacity .9s ease, visibility .9s; }
 body.lampara #noche { opacity: 1; visibility: visible; }
 body.lampara { background: #0E0C09 !important; transition: background .9s ease; }
@@ -706,7 +705,7 @@ body.lampara { background: #0E0C09 !important; transition: background .9s ease; 
 #noche .cono { position: absolute; top: 0; left: var(--lx); width: 150vw; height: 125vh; transform: translateX(-50%); mix-blend-mode: screen; }
 #lampara-frente { position: fixed; inset: 0; z-index: 30; pointer-events: none; opacity: 0; visibility: hidden; transition: opacity .9s ease, visibility .9s; }
 body.lampara #lampara-frente { opacity: 1; visibility: visible; }
-#lampara-frente .lampara { position: absolute; top: 0; left: var(--lx); width: min(150px, 30vw); transform: translateX(-50%); pointer-events: none; }
+#lampara-frente .lampara { position: absolute; top: 0; left: var(--lx); width: min(130px, 30vw); transform: translateX(-50%); pointer-events: none; }
 #lampara-frente .lampara svg { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 18px 24px rgba(0,0,0,.6)); }
 #lampara-frente .cordon { pointer-events: auto; cursor: pointer; }
 #lampara-frente .cordon:focus { outline: none; } #lampara-frente .cordon:focus-visible circle { stroke: #fff; stroke-width: 2; }
@@ -714,12 +713,12 @@ body.lampara #lampara-frente { opacity: 1; visibility: visible; }
 @keyframes enciende { 0% { opacity: .1; } 12% { opacity: .9; } 22% { opacity: .25; } 36% { opacity: 1; } 48% { opacity: .55; } 100% { opacity: 1; } }
 /* mientras está encendida: solo la hoja, para escribir sin distracciones */
 body.lampara .top, body.lampara .vista > :not(#panel), body.lampara #panel > :not(.mesa) { display: none !important; }
-body.lampara .cuerpo-app { padding-top: 84px; max-width: 720px; }
+body.lampara .cuerpo-app { padding-top: 134px; max-width: 720px; }
 body.lampara .hoja { box-shadow: 0 0 0 .5px rgba(255,205,150,.12), 0 30px 140px -20px rgba(255,190,110,.28); }
 body.lampara .hoja::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(rgba(255,214,150,.06), transparent 30%, rgba(10,6,2,.22)); }
 body.lampara .aviso { background: #3A2E1E; color: #F3E4C4; }
-@media (max-width: 999px) { #noche, #lampara-frente { --lx: 28%; } #lampara-frente .lampara { width: 104px; } }
-@media (max-width: 560px) { body.lampara .cuerpo-app { padding-top: 98px; padding-left: 12px; padding-right: 12px; } }
+@media (max-width: 999px) { #lampara-frente .lampara { width: 104px; } }
+@media (max-width: 560px) { body.lampara .cuerpo-app { padding-top: 108px; padding-left: 12px; padding-right: 12px; } }
 @media (prefers-reduced-motion: reduce) { #noche.enciende .cono, #lampara-frente.enciende .bulbo { animation: none !important; } }
 @media print { #noche, #lampara-frente { display: none !important; } }
 #lampara-frente .lampara-pista { position: fixed; left: 0; right: 0; bottom: 14px; text-align: center; font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: rgba(243,228,196,.4); pointer-events: none; }
@@ -756,10 +755,14 @@ body.lampara .hoja { filter: brightness(var(--hoja-brillo, .94)) sepia(var(--hoj
 /* la hoja se ilumina solo donde llega el haz */
 :root { --sombra-a: .6; }
 .sombra-haz { position: absolute; top: 0; left: var(--lx, 50%); width: 300%; height: 150%; transform: translateX(-50%); background: rgba(8, 6, 4, var(--sombra-a)); -webkit-mask-image: var(--mascara-haz); mask-image: var(--mascara-haz); -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; pointer-events: none; }
-#sombra-haz { filter: blur(9px); position: fixed; inset: -24px; z-index: 20; overflow: hidden; pointer-events: none; opacity: 0; visibility: hidden; transition: opacity .9s ease, visibility .9s; --lx: 80%; }
-@media (min-width: 1000px) { #sombra-haz { --lx: calc(50% + 430px); } }
-@media (max-width: 999px) { #sombra-haz { --lx: 28%; } }
+#sombra-haz { filter: blur(9px); position: fixed; inset: -24px; z-index: 20; overflow: hidden; pointer-events: none; opacity: 0; visibility: hidden; transition: opacity .9s ease, visibility .9s; --lx: 50%; }
 body.lampara #sombra-haz { opacity: 1; visibility: visible; }
 .noche-prueba .sombra-haz { left: 50%; z-index: 2; } .noche-prueba .lampara { z-index: 3; }
 body.lampara .hoja { filter: none; }
 @media print { #sombra-haz { display: none !important; } }
+
+/* el tinte cálido de la luz sobre la hoja, solo dentro del haz */
+#luz-haz { filter: blur(9px); position: fixed; inset: -24px; z-index: 21; overflow: hidden; pointer-events: none; mix-blend-mode: soft-light; opacity: 0; visibility: hidden; transition: opacity .9s ease, visibility .9s; --lx: 50%; }
+body.lampara #luz-haz { opacity: .5; visibility: visible; }
+#luz-haz .sombra-haz { background: rgb(var(--luz-rgb)); -webkit-mask-image: var(--mascara-luz); mask-image: var(--mascara-luz); }
+@media print { #luz-haz { display: none !important; } }

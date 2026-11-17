@@ -230,28 +230,39 @@ async function cargaLetras(ids) {
 }
 
 // ---------- la lamparita: escribir de noche, con una luz cálida y nada más ----------
+const num = (k, d) => { const v = parseFloat(localStorage.getItem(k)); return isFinite(v) ? v : d; };
+const luz = { brillo: () => num('posdata.luz.brillo', 70), calidez: () => num('posdata.luz.calidez', 55), haz: () => localStorage.getItem('posdata.luz.haz') || 'medio' };
+const HACES = [['amplio', 'Amplio'], ['medio', 'Medio'], ['estrecho', 'Estrecho'], ['foco', 'Foco'], ['difuso', 'Difuso']];
+function aplicaLuz() {
+  const b = luz.brillo() / 100, w = luz.calidez() / 100, mezcla = (a, z) => Math.round(a + (z - a) * w);
+  const r = document.documentElement.style;
+  r.setProperty('--luz-rgb', `255,${mezcla(246, 168)},${mezcla(230, 78)}`);          // de blanco neutro a ámbar cálido
+  r.setProperty('--luz-a1', (.14 + .58 * b).toFixed(2)); r.setProperty('--luz-a2', (.07 + .3 * b).toFixed(2)); r.setProperty('--luz-a3', (.02 + .12 * b).toFixed(2));
+  r.setProperty('--hoja-brillo', (.8 + .2 * b).toFixed(2)); r.setProperty('--hoja-sepia', (.02 + .16 * w).toFixed(2));
+  document.querySelectorAll('[data-haz]').forEach((e) => e.setAttribute('data-haz', luz.haz()));
+}
+aplicaLuz();
 const lamparaModo = () => localStorage.getItem('posdata.lampara') || 'no';           // no | si | auto
 const esDeNoche = () => { const h = new Date().getHours(); return h >= 21 || h < 7; };
 const lamparaOn = () => lamparaModo() === 'si' || (lamparaModo() === 'auto' && esDeNoche());
-function montaLampara() {
-  if (document.getElementById('noche')) return;
-  const n = document.createElement('div'); n.id = 'noche'; n.setAttribute('aria-hidden', 'true');
-  n.innerHTML = `<div class="cono"></div><div class="lampara"><svg viewBox="0 0 220 300" xmlns="http://www.w3.org/2000/svg">
+const LAMPARA_SVG = (id) => `<svg viewBox="0 0 220 300" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <linearGradient id="lp-esm" x1="0" x2="1"><stop offset="0" stop-color="#1F2B25"/><stop offset=".45" stop-color="#3C5046"/><stop offset="1" stop-color="#17211C"/></linearGradient>
-      <linearGradient id="lp-lat" x1="0" x2="1"><stop offset="0" stop-color="#8A6A32"/><stop offset=".5" stop-color="#E2C27A"/><stop offset="1" stop-color="#7A5B27"/></linearGradient>
-      <radialGradient id="lp-luz" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFF6DC"/><stop offset=".45" stop-color="#FFD58A"/><stop offset="1" stop-color="#FFB45A" stop-opacity="0"/></radialGradient>
+      <linearGradient id="lp-esm${id}" x1="0" x2="1"><stop offset="0" stop-color="#1F2B25"/><stop offset=".45" stop-color="#3C5046"/><stop offset="1" stop-color="#17211C"/></linearGradient>
+      <linearGradient id="lp-lat${id}" x1="0" x2="1"><stop offset="0" stop-color="#8A6A32"/><stop offset=".5" stop-color="#E2C27A"/><stop offset="1" stop-color="#7A5B27"/></linearGradient>
+      <radialGradient id="lp-luz${id}" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFF6DC"/><stop offset=".45" stop-color="rgb(var(--luz-rgb))"/><stop offset="1" stop-color="rgb(var(--luz-rgb))" stop-opacity="0"/></radialGradient>
     </defs>
     <line x1="110" y1="-40" x2="110" y2="62" stroke="#15110D" stroke-width="3.5"/>
-    <rect x="98" y="58" width="24" height="26" rx="5" fill="url(#lp-lat)"/><rect x="95" y="80" width="30" height="7" rx="3" fill="#6B4F22"/>
-    <path d="M70 90 Q110 80 150 90 L208 196 Q110 222 12 196 Z" fill="url(#lp-esm)"/>
+    <rect x="98" y="58" width="24" height="26" rx="5" fill="url(#lp-lat${id})"/><rect x="95" y="80" width="30" height="7" rx="3" fill="#6B4F22"/>
+    <path d="M70 90 Q110 80 150 90 L208 196 Q110 222 12 196 Z" fill="url(#lp-esm${id})"/>
     <path d="M84 98 Q96 96 100 100 L58 190" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="5" stroke-linecap="round"/>
-    <ellipse cx="110" cy="198" rx="98" ry="15" fill="url(#lp-lat)"/><ellipse cx="110" cy="199" rx="90" ry="10" fill="#2A1D0C"/>
-    <g class="bulbo"><ellipse cx="110" cy="206" rx="70" ry="24" fill="url(#lp-luz)"/><circle cx="110" cy="203" r="17" fill="#FFF3D0"/><circle cx="110" cy="203" r="26" fill="url(#lp-luz)" opacity=".8"/></g>
-    <g class="cordon" id="cordon" role="button" tabindex="0" aria-label="Apagar la lamparita">
-      <line x1="196" y1="194" x2="196" y2="262" stroke="#3A2E1E" stroke-width="2"/><rect x="170" y="190" width="52" height="96" fill="transparent"/>
-      <circle cx="196" cy="270" r="9" fill="url(#lp-lat)" stroke="#5A431B" stroke-width="1"/></g>
-  </svg></div><p class="lampara-pista">Tira del cordón (o pulsa Esc) para apagar la luz y volver</p>`;
+    <ellipse cx="110" cy="198" rx="98" ry="15" fill="url(#lp-lat${id})"/><ellipse cx="110" cy="199" rx="90" ry="10" fill="#2A1D0C"/>
+    <g class="bulbo"><ellipse cx="110" cy="206" rx="70" ry="24" fill="url(#lp-luz${id})"/><circle cx="110" cy="203" r="17" fill="#FFF3D0"/><circle cx="110" cy="203" r="26" fill="url(#lp-luz${id})" opacity=".8"/></g>
+    ${id ? '' : `<g class="cordon" id="cordon" role="button" tabindex="0" aria-label="Apagar la lamparita"><line x1="196" y1="194" x2="196" y2="262" stroke="#3A2E1E" stroke-width="2"/><rect x="170" y="190" width="52" height="96" fill="transparent"/><circle cx="196" cy="270" r="9" fill="url(#lp-lat${id})" stroke="#5A431B" stroke-width="1"/></g>`}
+  </svg>`;
+function montaLampara() {
+  if (document.getElementById('noche')) return;
+  const n = document.createElement('div'); n.id = 'noche'; n.setAttribute('aria-hidden', 'true'); n.setAttribute('data-haz', luz.haz());
+  n.innerHTML = `<div class="cono"></div><div class="lampara">${LAMPARA_SVG('')}</div><p class="lampara-pista">Tira del cordón (o pulsa Esc) para apagar la luz y volver</p>`;
   document.body.prepend(n);
   const apaga = () => { fijaLampara(false); };
   n.querySelector('#cordon').addEventListener('click', apaga);
@@ -883,9 +894,16 @@ async function vistaPerfil() {
       <label class="interruptor"><span><b>Tipografía de máquina de escribir</b><em class="etq">Al escribir y al leer las cartas</em></span><input type="checkbox" id="sw-maquina" ${maquinaActiva() ? 'checked' : ''}></label>
       <label class="interruptor"><span><b>Sonido de las teclas</b><em class="etq">Teclas, espacio, timbre y retorno de carro</em></span><input type="checkbox" id="sw-sonido" ${sonidoActivo() ? 'checked' : ''}></label>
       <div><p class="lbl" style="margin-bottom:8px">Cómo suena</p><div class="chips" id="s-tipos">${Object.entries(TIPOS).map(([k, v]) => `<button type="button" class="chip ${tipoSonido() === k ? 'on' : ''}" data-tipo="${k}">${v.nombre}</button>`).join('')}</div></div>
-      <div><p class="lbl" style="margin-bottom:8px">La lamparita al escribir</p><div class="chips" id="l-modos">${[['no', 'Apagada'], ['si', 'Encendida'], ['auto', 'De noche (21:00 a 7:00)']].map(([k, n]) => `<button type="button" class="chip ${lamparaModo() === k ? 'on' : ''}" data-lmodo="${k}">${n}</button>`).join('')}</div><p class="ayuda" style="margin-top:6px">En la hoja de escribir, el botón de la lámpara la enciende o la apaga cuando quieras.</p></div>
       <label class="rango"><span>Volumen</span><input type="range" id="s-vol" min="10" max="100" step="5" value="${Math.round(volumen() * 100)}" aria-label="Volumen de la máquina de escribir"></label>
       <p class="maquina-prueba" id="m-prueba" tabindex="0">Pulsa aquí y prueba el sonido.</p></div>
+    <div class="papel" id="luz-noche"><div><p class="etq">Escribir de noche</p><h3 style="margin-top:4px">Luz nocturna</h3></div>
+      <p class="muted">Una lamparita retro para escribir con calma: baja la luz de la pantalla y se esconde todo menos la hoja.</p>
+      <div><p class="lbl" style="margin-bottom:8px">Cuándo se enciende</p><div class="chips" id="l-modos">${[['no', 'Apagada'], ['si', 'Encendida'], ['auto', 'De noche (21:00 a 7:00)']].map(([k, n]) => `<button type="button" class="chip ${lamparaModo() === k ? 'on' : ''}" data-lmodo="${k}">${n}</button>`).join('')}</div><p class="ayuda" style="margin-top:6px">En la hoja de escribir, el botón de la lámpara también la enciende y apaga.</p></div>
+      <div class="noche-prueba" id="noche-prueba" data-haz="${luz.haz()}" aria-hidden="true"><div class="cono"></div><div class="lampara">${LAMPARA_SVG('p')}</div><div class="hoja-prueba"><p>Una pequeña luz.<br>Una página tranquila.</p></div></div>
+      <p class="etq" style="text-align:center">Vista previa</p>
+      <div class="ajuste-luz"><div class="fila entre"><b>Brillo</b><span class="etq" id="v-brillo"></span></div><input type="range" id="luz-brillo" min="10" max="100" step="5" value="${luz.brillo()}" aria-label="Brillo de la luz"><div class="fila entre ayuda"><span>Tenue</span><span>Brillante</span></div></div>
+      <div class="ajuste-luz"><div class="fila entre"><b>Calidez de la luz</b><span class="etq" id="v-calidez"></span></div><input type="range" id="luz-calidez" min="0" max="100" step="5" value="${luz.calidez()}" aria-label="Calidez de la luz"><div class="fila entre ayuda"><span>Neutra</span><span>Ámbar cálido</span></div></div>
+      <div><p class="lbl" style="margin-bottom:8px">Forma del haz</p><div class="chips" id="l-haz">${HACES.map(([k, n]) => `<button type="button" class="chip ${luz.haz() === k ? 'on' : ''}" data-haz-op="${k}">${n}</button>`).join('')}</div></div></div>
     <div class="papel" id="avisos"><div><p class="etq">Avisos</p><h3 style="margin-top:4px">Qué te avisa</h3></div><p class="muted">Tú eliges qué llega y por dónde.</p>
       <div class="av-cab"><span></span><span class="etq">Móvil</span><span class="etq">Correo</span></div>
       ${AVISOS.map(([id, t, d, m, c, fijo]) => { const a = (p.avisos || {})[id] || {}; return `<div class="av-fila"><div><b>${t}</b><span class="etq">${d}${fijo ? ' · no se puede quitar' : ''}</span></div>${[['movil', m, 'en el móvil'], ['correo', c, 'por correo']].map(([k, def, txt]) => `<label class="tick"><input type="checkbox" data-av="${id}:${k}" ${(a[k] ?? !!def) || fijo ? 'checked' : ''} ${fijo ? 'disabled' : ''} aria-label="${t} ${txt}"></label>`).join('')}</div>`; }).join('')}
@@ -910,6 +928,11 @@ async function vistaPerfil() {
   const toca = () => { suena('tecla', 'e'); setTimeout(() => suena('tecla', 'r'), 130); setTimeout(() => suena('espacio'), 250); setTimeout(() => suena('tecla', 'o'), 380); setTimeout(() => suena('retorno'), 560); };
   document.getElementById('s-tipos').onclick = (e) => { const t = e.target.closest('[data-tipo]'); if (!t) return; fijaTipo(t.dataset.tipo); document.querySelectorAll('#s-tipos .chip').forEach((x) => x.classList.toggle('on', x === t)); toca(); };
   document.getElementById('l-modos').onclick = (e) => { const b = e.target.closest('[data-lmodo]'); if (!b) return; localStorage.setItem('posdata.lampara', b.dataset.lmodo); document.querySelectorAll('#l-modos .chip').forEach((x) => x.classList.toggle('on', x === b)); suena('interruptor'); };
+  const rotulos = () => { const b = luz.brillo(), c = luz.calidez(); document.getElementById('v-brillo').textContent = b < 40 ? 'Tenue' : b < 75 ? 'Medio' : 'Intenso'; document.getElementById('v-calidez').textContent = c ? c + '% cálida' : 'Neutra'; };
+  rotulos();
+  document.getElementById('luz-brillo').oninput = (e) => { localStorage.setItem('posdata.luz.brillo', e.target.value); aplicaLuz(); rotulos(); };
+  document.getElementById('luz-calidez').oninput = (e) => { localStorage.setItem('posdata.luz.calidez', e.target.value); aplicaLuz(); rotulos(); };
+  document.getElementById('l-haz').onclick = (e) => { const h = e.target.closest('[data-haz-op]'); if (!h) return; localStorage.setItem('posdata.luz.haz', h.dataset.hazOp); document.querySelectorAll('#l-haz .chip').forEach((x) => x.classList.toggle('on', x === h)); aplicaLuz(); };
   let tVol; document.getElementById('s-vol').oninput = (e) => { fijaVolumen(e.target.value / 100); clearTimeout(tVol); tVol = setTimeout(() => suena('tecla', 'a'), 150); };
   const prueba = document.getElementById('m-prueba'); conMaquina(prueba); prueba.contentEditable = 'true'; prueba.spellcheck = false;
   let tAv; document.getElementById('avisos').addEventListener('change', (e) => {

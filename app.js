@@ -274,7 +274,8 @@ addEventListener('resize', aplicaPozo);
 let focoY = null;
 function sigueLaPluma() {
   if (!document.body.classList.contains('lampara')) return;
-  const el = document.activeElement; let y = innerHeight * .42;
+  const ta = document.querySelector('.hoja textarea'); let y = ta ? ta.getBoundingClientRect().top + 90 : innerHeight * .42;
+  const el = document.activeElement;
   if (el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && el.type === 'text'))) {
     const r = el.getBoundingClientRect();
     if (el.tagName === 'TEXTAREA') {

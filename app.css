@@ -774,9 +774,9 @@ body.lampara #luz-haz { opacity: .55; visibility: visible; }
 @media (max-width: 999px) { #haz-delante { --bombilla: 96px; } }
 body.lampara #haz-delante { opacity: 1; visibility: visible; }
 .haz-cuerpo { position: absolute; inset: 0;
-  --w: calc(var(--pozo-rx) * var(--k) * .7); --fin: calc(var(--foco-y) + var(--pozo-ry) * var(--k) * .35);
+  --w: calc(var(--pozo-rx) * var(--k) * .7); --fin: calc(var(--foco-y) + var(--pozo-ry) * var(--k) * .95);
   clip-path: polygon(calc(var(--lx) - 12px) var(--bombilla), calc(var(--lx) + 12px) var(--bombilla), calc(var(--lx) + var(--w)) var(--fin), calc(var(--lx) - var(--w)) var(--fin));
-  background: linear-gradient(to bottom, rgba(var(--luz-rgb), calc(var(--luz-a1) * .85)) var(--bombilla), rgba(var(--luz-rgb), calc(var(--luz-a2) * .8)) calc(var(--bombilla) + (var(--fin) - var(--bombilla)) * .5), rgba(var(--luz-rgb), calc(var(--luz-a2) * .35)) var(--fin));
+  background: linear-gradient(to bottom, rgba(var(--luz-rgb), calc(var(--luz-a1) * .85)) var(--bombilla), rgba(var(--luz-rgb), calc(var(--luz-a2) * .8)) calc(var(--bombilla) + (var(--fin) - var(--bombilla)) * .45), rgba(var(--luz-rgb), 0) var(--fin));
   transition: clip-path 1.4s cubic-bezier(.3,.6,.2,1); }
 [data-haz="foco"] .haz-cuerpo { --w: calc(var(--pozo-rx) * var(--k) * .45); }
 @media print { #haz-delante { display: none !important; } }
@@ -787,3 +787,7 @@ body.lampara #haz-delante { opacity: 1; visibility: visible; }
 [data-haz="foco"] .haz-base { width: calc(var(--pozo-rx) * var(--k) * 1.05); }
 /* el aviso de guardado ocupa siempre su propia línea: así la hoja no se mueve al guardar */
 .hoja .etq.fecha .b-estado { display: block; margin: 4px 0 0; min-height: 1.5em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.haz-base { display: none; }
+body.lampara .cuerpo-app { padding-top: 176px; }
+@media (max-width: 560px) { body.lampara .cuerpo-app { padding-top: 136px; } }

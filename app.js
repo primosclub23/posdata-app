@@ -274,34 +274,54 @@ function aplicaLuz() {
 aplicaLuz();
 const lamparaModo = () => localStorage.getItem('posdata.lampara') || 'no';           // no | si | auto
 const esDeNoche = () => { const h = new Date().getHours(); return h >= 21 || h < 7; };
-const lamparaOn = () => lamparaModo() === 'si' || (lamparaModo() === 'auto' && esDeNoche());
-const LAMPARA_SVG = (id) => `<svg viewBox="0 0 220 300" xmlns="http://www.w3.org/2000/svg">
+const lamparaOn = () => premium() && lamparaModo() === 'si' || (premium() && lamparaModo() === 'auto' && esDeNoche());
+const LAMPARAS = [['esmeralda', 'Esmeralda'], ['laton', 'Campana de latón'], ['opalina', 'Globo de opalina'], ['roja', 'Esmaltada roja'], ['tulipa', 'Tulipa de cristal']];
+const lamparaEstilo = () => { const k = localStorage.getItem('posdata.luz.lampara'); return LAMPARAS.some((x) => x[0] === k) ? k : 'esmeralda'; };
+const LAMPARA_PANTALLA = {
+  esmeralda: (i) => `<defs><linearGradient id="lp-a${i}" x1="0" x2="1"><stop offset="0" stop-color="#1F2B25"/><stop offset=".45" stop-color="#3C5046"/><stop offset="1" stop-color="#17211C"/></linearGradient></defs>
+    <path d="M70 90 Q110 80 150 90 L208 196 Q110 222 12 196 Z" fill="url(#lp-a${i})"/><path d="M84 98 Q96 96 100 100 L58 190" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="5" stroke-linecap="round"/>
+    <ellipse cx="110" cy="198" rx="98" ry="15" fill="url(#lp-lat${i})"/><ellipse cx="110" cy="199" rx="90" ry="10" fill="#2A1D0C"/>`,
+  laton: (i) => `<path d="M62 98 Q110 56 158 98 Q168 150 196 196 Q110 218 24 196 Q52 150 62 98Z" fill="url(#lp-lat${i})"/><path d="M76 100 Q86 80 104 70" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="5" stroke-linecap="round"/>
+    <path d="M40 168 Q110 188 180 168" fill="none" stroke="#6B4F22" stroke-opacity=".5" stroke-width="2"/><ellipse cx="110" cy="198" rx="86" ry="12" fill="#7A5B27"/><ellipse cx="110" cy="199" rx="78" ry="8" fill="#2A1D0C"/>`,
+  opalina: (i) => `<defs><radialGradient id="lp-b${i}" cx=".42" cy=".38" r=".7"><stop offset="0" stop-color="#FFFDF4"/><stop offset=".6" stop-color="#F3E9CF"/><stop offset="1" stop-color="rgb(var(--luz-rgb))" stop-opacity=".9"/></radialGradient></defs>
+    <rect x="92" y="84" width="36" height="22" rx="5" fill="#8A8A82"/><path d="M70 108 H150 L156 120 H64Z" fill="#B9B6A8"/>
+    <circle cx="110" cy="168" r="56" fill="url(#lp-b${i})"/><ellipse cx="90" cy="148" rx="14" ry="22" fill="#fff" fill-opacity=".45" transform="rotate(25 90 148)"/>`,
+  roja: (i) => `<defs><linearGradient id="lp-c${i}" x1="0" x2="1"><stop offset="0" stop-color="#7A1F18"/><stop offset=".4" stop-color="#C2392A"/><stop offset="1" stop-color="#6A1912"/></linearGradient></defs>
+    <path d="M90 90 H130 L200 196 Q110 214 20 196 Z" fill="url(#lp-c${i})"/><path d="M96 98 L52 186" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="5" stroke-linecap="round"/>
+    <ellipse cx="110" cy="197" rx="90" ry="12" fill="#F2EBDD"/><ellipse cx="110" cy="198" rx="82" ry="8" fill="#2A1D0C"/>`,
+  tulipa: (i) => `<defs><linearGradient id="lp-d${i}" x1="0" x2="1"><stop offset="0" stop-color="#E9DDBE"/><stop offset=".5" stop-color="#FBF3DC"/><stop offset="1" stop-color="#DCCFA9"/></linearGradient></defs>
+    <path d="M84 96 Q110 86 136 96 Q150 142 188 190 Q110 214 32 190 Q70 142 84 96Z" fill="url(#lp-d${i})" stroke="#BFA96E" stroke-width="1.5"/>
+    <path d="M110 92 V204 M98 94 Q80 150 54 192 M122 94 Q140 150 166 192" fill="none" stroke="#BFA96E" stroke-opacity=".55" stroke-width="1.5"/>
+    <ellipse cx="110" cy="196" rx="80" ry="11" fill="#CDB77C"/><ellipse cx="110" cy="198" rx="72" ry="7" fill="#2A1D0C"/>`,
+};
+const LAMPARA_SVG = (id, estilo = lamparaEstilo()) => `<svg viewBox="0 0 220 300" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <linearGradient id="lp-esm${id}" x1="0" x2="1"><stop offset="0" stop-color="#1F2B25"/><stop offset=".45" stop-color="#3C5046"/><stop offset="1" stop-color="#17211C"/></linearGradient>
       <linearGradient id="lp-lat${id}" x1="0" x2="1"><stop offset="0" stop-color="#8A6A32"/><stop offset=".5" stop-color="#E2C27A"/><stop offset="1" stop-color="#7A5B27"/></linearGradient>
       <radialGradient id="lp-luz${id}" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFF6DC"/><stop offset=".45" stop-color="rgb(var(--luz-rgb))"/><stop offset="1" stop-color="rgb(var(--luz-rgb))" stop-opacity="0"/></radialGradient>
     </defs>
-    <line x1="110" y1="-40" x2="110" y2="62" stroke="#15110D" stroke-width="3.5"/>
-    <rect x="98" y="58" width="24" height="26" rx="5" fill="url(#lp-lat${id})"/><rect x="95" y="80" width="30" height="7" rx="3" fill="#6B4F22"/>
-    <path d="M70 90 Q110 80 150 90 L208 196 Q110 222 12 196 Z" fill="url(#lp-esm${id})"/>
-    <path d="M84 98 Q96 96 100 100 L58 190" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="5" stroke-linecap="round"/>
-    <ellipse cx="110" cy="198" rx="98" ry="15" fill="url(#lp-lat${id})"/><ellipse cx="110" cy="199" rx="90" ry="10" fill="#2A1D0C"/>
-    <g class="bulbo"><ellipse cx="110" cy="206" rx="70" ry="24" fill="url(#lp-luz${id})"/><circle cx="110" cy="203" r="17" fill="#FFF3D0"/><circle cx="110" cy="203" r="26" fill="url(#lp-luz${id})" opacity=".8"/></g>
+    <line x1="110" y1="-40" x2="110" y2="${estilo === 'opalina' ? 86 : 62}" stroke="#15110D" stroke-width="3.5"/>
+    ${estilo === 'opalina' ? '' : `<rect x="98" y="58" width="24" height="26" rx="5" fill="url(#lp-lat${id})"/><rect x="95" y="80" width="30" height="7" rx="3" fill="#6B4F22"/>`}
+    ${LAMPARA_PANTALLA[estilo](id)}
+    <g class="bulbo"><ellipse cx="110" cy="${estilo === 'opalina' ? 214 : 206}" rx="70" ry="24" fill="url(#lp-luz${id})"/><circle cx="110" cy="${estilo === 'opalina' ? 168 : 203}" r="${estilo === 'opalina' ? 26 : 17}" fill="#FFF3D0" ${estilo === 'opalina' ? 'opacity=".7"' : ''}/><circle cx="110" cy="${estilo === 'opalina' ? 214 : 203}" r="26" fill="url(#lp-luz${id})" opacity=".8"/></g>
     ${id ? '' : `<g class="cordon" id="cordon" role="button" tabindex="0" aria-label="Apagar la lamparita"><line x1="196" y1="194" x2="196" y2="262" stroke="#3A2E1E" stroke-width="2"/><rect x="170" y="190" width="52" height="96" fill="transparent"/><circle cx="196" cy="270" r="9" fill="url(#lp-lat${id})" stroke="#5A431B" stroke-width="1"/></g>`}
   </svg>`;
 function montaLampara() {
   if (document.getElementById('noche')) return;
   const n = document.createElement('div'); n.id = 'noche'; n.setAttribute('aria-hidden', 'true'); n.setAttribute('data-haz', luz.haz());
-  n.innerHTML = `<div class="cono"></div><div class="lampara">${LAMPARA_SVG('')}</div><p class="lampara-pista">Tira del cordón (o pulsa Esc) para apagar la luz y volver</p>`;
+  n.innerHTML = `<div class="cono"></div>`;
   document.body.prepend(n);
+  const f = document.createElement('div'); f.id = 'lampara-frente'; f.setAttribute('data-haz', luz.haz());
+  f.innerHTML = `<div class="lampara">${LAMPARA_SVG('')}</div><p class="lampara-pista">Tira del cordón (o pulsa Esc) para apagar la luz y volver</p>`;
+  document.body.append(f);
   const apaga = () => { fijaLampara(false); };
-  n.querySelector('#cordon').addEventListener('click', apaga);
-  n.querySelector('#cordon').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); apaga(); } });
+  f.querySelector('#cordon').addEventListener('click', apaga);
+  f.querySelector('#cordon').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); apaga(); } });
 }
+function cambiaLampara() { const l = document.querySelector('#lampara-frente .lampara'); if (l) l.innerHTML = LAMPARA_SVG('').replace('</svg>', '</svg>'); const c = document.getElementById('cordon'); if (c) { c.addEventListener('click', () => fijaLampara(false)); c.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fijaLampara(false); } }); } }
 function aplicaLampara(sonar = false) {
   const on = lamparaOn(); montaLampara();
   const n = document.getElementById('noche');
-  if (on && !document.body.classList.contains('lampara')) { n.classList.remove('enciende'); void n.offsetWidth; n.classList.add('enciende'); if (sonar) suena('interruptor'); }
+  if (on && !document.body.classList.contains('lampara')) { const fr = document.getElementById('lampara-frente'); for (const x of [n, fr]) x.classList.remove('enciende'); void n.offsetWidth; for (const x of [n, fr]) x.classList.add('enciende'); if (sonar) suena('interruptor'); }
   else if (!on && sonar && document.body.classList.contains('lampara')) suena('interruptor');
   document.body.classList.toggle('lampara', on);
   const b = document.getElementById('b-lampara'); if (b) { b.setAttribute('aria-pressed', on); b.title = on ? 'Apagar la lamparita' : 'Encender la lamparita'; b.setAttribute('aria-label', b.title); }
@@ -400,7 +420,7 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas, edit = null) {
   precarga();
   f.querySelectorAll('textarea, input.titulo').forEach((el) => conMaquina(el, { margen: el.tagName === 'TEXTAREA' ? 58 : 0 }));
   f.insertAdjacentHTML('afterbegin', `<button type="button" class="sonido-btn" id="b-sonido"></button><button type="button" class="lampara-btn" id="b-lampara" aria-pressed="false">${ICONO.lampara}</button>`);
-  document.getElementById('b-lampara').onclick = () => fijaLampara(!document.body.classList.contains('lampara'));
+  document.getElementById('b-lampara').onclick = () => !premium() ? avisa('La lamparita es de Posdata completa.', true) : fijaLampara(!document.body.classList.contains('lampara'));
   aplicaLampara();
   const btS = document.getElementById('b-sonido');
   const pintaS = () => { const on = sonidoActivo(); btS.innerHTML = on ? ICONO.sonido : ICONO.silencio; btS.setAttribute('aria-pressed', on); btS.setAttribute('aria-label', on ? 'Silenciar la máquina de escribir' : 'Activar el sonido de la máquina de escribir'); btS.title = on ? 'Sonido de la máquina: sí' : 'Sonido de la máquina: no'; };
@@ -942,8 +962,9 @@ async function vistaPerfil() {
       ${selectorEstilo(estiloInicial(), 'selector-perfil')}
       <p class="ayuda">El papel crema, el tipo original, la hoja rayada y la tinta negra son gratis. Lo demás viene con Posdata completa${premium() ? '' : ' (ahora aparece con candado)'}.</p></div>`}
     <div class="papel" id="luz-noche"><div><p class="etq">Escribir de noche</p><h3 style="margin-top:4px">Luz nocturna</h3></div>
-      <p class="muted">Una lamparita retro para escribir con calma: baja la luz de la pantalla y se esconde todo menos la hoja.</p>
+      <p class="muted">Una lamparita retro para escribir con calma: cuelga delante de la hoja sin estorbar, baja la luz de la pantalla y esconde todo lo demás.${premium() ? '' : ' Es una función de Posdata completa.'}</p>
       <div><p class="lbl" style="margin-bottom:8px">Cuándo se enciende</p><div class="chips" id="l-modos">${[['no', 'Apagada'], ['si', 'Encendida'], ['auto', 'De noche (21:00 a 7:00)']].map(([k, n]) => `<button type="button" class="chip ${lamparaModo() === k ? 'on' : ''}" data-lmodo="${k}">${n}</button>`).join('')}</div><p class="ayuda" style="margin-top:6px">En la hoja de escribir, el botón de la lámpara también la enciende y apaga.</p></div>
+      <div><p class="lbl" style="margin-bottom:8px">Tu lámpara</p><div class="muestras" id="l-lamparas">${LAMPARAS.map(([k, n]) => `<button type="button" class="muestra ${lamparaEstilo() === k ? 'on' : ''}" data-lamp="${k}" aria-pressed="${lamparaEstilo() === k}" aria-label="${n}"><span class="mini-lamp">${LAMPARA_SVG('m' + k, k)}</span><span>${n}</span>${k !== 'esmeralda' && !premium() ? '<u class="candado-p">🔒</u>' : ''}</button>`).join('')}</div></div>
       <div class="noche-prueba" id="noche-prueba" data-haz="${luz.haz()}" aria-hidden="true"><div class="cono"></div><div class="lampara">${LAMPARA_SVG('p')}</div><div class="hoja-prueba"><p>Una pequeña luz.<br>Una página tranquila.</p></div></div>
       <p class="etq" style="text-align:center">Vista previa</p>
       <div class="ajuste-luz"><div class="fila entre"><b>Brillo</b><span class="etq" id="v-brillo"></span></div><input type="range" id="luz-brillo" min="10" max="100" step="5" value="${luz.brillo()}" aria-label="Brillo de la luz"><div class="fila entre ayuda"><span>Tenue</span><span>Brillante</span></div></div>
@@ -984,7 +1005,13 @@ async function vistaPerfil() {
   document.getElementById('sw-sonido').onchange = (e) => { fijaSonido(e.target.checked); if (e.target.checked) suena('retorno'); };
   const toca = () => { suena('tecla', 'e'); setTimeout(() => suena('tecla', 'r'), 130); setTimeout(() => suena('espacio'), 250); setTimeout(() => suena('tecla', 'o'), 380); setTimeout(() => suena('retorno'), 560); };
   document.getElementById('s-tipos').onclick = (e) => { const t = e.target.closest('[data-tipo]'); if (!t) return; fijaTipo(t.dataset.tipo); document.querySelectorAll('#s-tipos .chip').forEach((x) => x.classList.toggle('on', x === t)); toca(); };
-  document.getElementById('l-modos').onclick = (e) => { const b = e.target.closest('[data-lmodo]'); if (!b) return; localStorage.setItem('posdata.lampara', b.dataset.lmodo); document.querySelectorAll('#l-modos .chip').forEach((x) => x.classList.toggle('on', x === b)); suena('interruptor'); };
+  document.getElementById('l-lamparas').onclick = (e) => {
+    const b = e.target.closest('[data-lamp]'); if (!b) return;
+    if (!premium()) return avisa('La lamparita y sus modelos son de Posdata completa.', true);
+    localStorage.setItem('posdata.luz.lampara', b.dataset.lamp); document.querySelectorAll('#l-lamparas .muestra').forEach((x) => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
+    document.querySelector('#noche-prueba .lampara').innerHTML = LAMPARA_SVG('p'); cambiaLampara(); suena('interruptor');
+  };
+  document.getElementById('l-modos').onclick = (e) => { const b = e.target.closest('[data-lmodo]'); if (!b) return; if (!premium()) return avisa('La lamparita es de Posdata completa.', true); localStorage.setItem('posdata.lampara', b.dataset.lmodo); document.querySelectorAll('#l-modos .chip').forEach((x) => x.classList.toggle('on', x === b)); suena('interruptor'); };
   const rotulos = () => { const b = luz.brillo(), c = luz.calidez(); document.getElementById('v-brillo').textContent = b < 40 ? 'Tenue' : b < 75 ? 'Medio' : 'Intenso'; document.getElementById('v-calidez').textContent = c ? c + '% cálida' : 'Neutra'; };
   rotulos();
   document.getElementById('luz-brillo').oninput = (e) => { localStorage.setItem('posdata.luz.brillo', e.target.value); aplicaLuz(); rotulos(); };

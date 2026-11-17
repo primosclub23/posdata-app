@@ -770,14 +770,18 @@ body.lampara #luz-haz { opacity: .55; visibility: visible; }
 @media print { #luz-haz, #sombra-haz { display: none !important; } }
 
 /* el haz por encima de la carta: baja desde la bombilla hasta el charco de luz */
-#haz-delante { filter: blur(9px); mix-blend-mode: screen; position: fixed; inset: -20px; z-index: 22; overflow: hidden; pointer-events: none; opacity: 0; visibility: hidden; transition: opacity .9s ease, visibility .9s; --lx: 50%; --bombilla: 118px; }
+#haz-delante { filter: blur(5px); mix-blend-mode: screen; position: fixed; inset: -20px; z-index: 22; overflow: hidden; pointer-events: none; opacity: 0; visibility: hidden; transition: opacity .9s ease, visibility .9s; --lx: 50%; --bombilla: 118px; }
 @media (max-width: 999px) { #haz-delante { --bombilla: 96px; } }
 body.lampara #haz-delante { opacity: 1; visibility: visible; }
 .haz-cuerpo { position: absolute; inset: 0;
-  --w: calc(var(--pozo-rx) * var(--k) * .62); --fin: calc(var(--foco-y) + var(--pozo-ry) * var(--k) * .55);
-  clip-path: polygon(calc(var(--lx) - 16px) var(--bombilla), calc(var(--lx) + 16px) var(--bombilla), calc(var(--lx) + var(--w)) var(--fin), calc(var(--lx) - var(--w)) var(--fin));
-  background: linear-gradient(to bottom, rgba(var(--luz-rgb), calc(var(--luz-a1) * .85)) var(--bombilla), rgba(var(--luz-rgb), calc(var(--luz-a2) * .8)) calc(var(--bombilla) + (var(--fin) - var(--bombilla)) * .5), rgba(var(--luz-rgb), 0) var(--fin));
+  --w: calc(var(--pozo-rx) * var(--k) * .7); --fin: calc(var(--foco-y) + var(--pozo-ry) * var(--k) * .35);
+  clip-path: polygon(calc(var(--lx) - 12px) var(--bombilla), calc(var(--lx) + 12px) var(--bombilla), calc(var(--lx) + var(--w)) var(--fin), calc(var(--lx) - var(--w)) var(--fin));
+  background: linear-gradient(to bottom, rgba(var(--luz-rgb), calc(var(--luz-a1) * .85)) var(--bombilla), rgba(var(--luz-rgb), calc(var(--luz-a2) * .8)) calc(var(--bombilla) + (var(--fin) - var(--bombilla)) * .5), rgba(var(--luz-rgb), calc(var(--luz-a2) * .35)) var(--fin));
   transition: clip-path .7s cubic-bezier(.2,.7,.2,1); }
 [data-haz="foco"] .haz-cuerpo { --w: calc(var(--pozo-rx) * var(--k) * .45); }
 @media print { #haz-delante { display: none !important; } }
 .noche-prueba .sombra-haz { z-index: 1; } .noche-prueba .cono { z-index: 2; }
+
+.haz-base { position: absolute; left: var(--lx); top: var(--fin, 0); width: calc(var(--pozo-rx) * var(--k) * 1.4); height: calc(var(--pozo-rx) * var(--k) * .34); transform: translate(-50%, -50%); border-radius: 50%; --fin: calc(var(--foco-y) + var(--pozo-ry) * var(--k) * .35);
+  background: radial-gradient(ellipse at center, rgba(var(--luz-rgb), calc(var(--luz-a2) * .5)) 0%, rgba(var(--luz-rgb), calc(var(--luz-a2) * .55)) 60%, rgba(var(--luz-rgb), 0) 100%); transition: top .7s cubic-bezier(.2,.7,.2,1); }
+[data-haz="foco"] .haz-base { width: calc(var(--pozo-rx) * var(--k) * 1.05); }

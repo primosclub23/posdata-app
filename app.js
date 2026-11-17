@@ -338,7 +338,7 @@ function montaLampara() {
   f.innerHTML = `<div class="lampara">${LAMPARA_SVG('')}</div><p class="lampara-pista">Tira del cordón (o pulsa Esc) para apagar la luz y volver</p>`;
   document.body.append(f);
   const sh = document.createElement('div'); sh.id = 'sombra-haz'; sh.setAttribute('aria-hidden', 'true'); sh.innerHTML = '<div class="sombra-haz"></div>'; document.body.append(sh);
-  const hd = document.createElement('div'); hd.id = 'haz-delante'; hd.setAttribute('aria-hidden', 'true'); hd.innerHTML = '<div class="haz-cuerpo"></div>'; document.body.append(hd);
+  const hd = document.createElement('div'); hd.id = 'haz-delante'; hd.setAttribute('aria-hidden', 'true'); hd.innerHTML = '<div class="haz-cuerpo"></div><div class="haz-base"></div>'; document.body.append(hd);
   const lz = document.createElement('div'); lz.id = 'luz-haz'; lz.setAttribute('aria-hidden', 'true'); lz.innerHTML = '<div class="sombra-haz"></div>'; document.body.append(lz);
   const apaga = () => { fijaLampara(false); };
   f.querySelector('#cordon').addEventListener('click', apaga);

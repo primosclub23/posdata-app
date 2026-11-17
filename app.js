@@ -261,13 +261,13 @@ async function cargaLetras(ids) {
 
 // ---------- la lamparita: escribir de noche, con una luz cálida y nada más ----------
 const num = (k, d) => { const v = parseFloat(localStorage.getItem(k)); return isFinite(v) ? v : d; };
-const luz = { brillo: () => num('posdata.luz.brillo', 70), calidez: () => num('posdata.luz.calidez', 55), haz: () => localStorage.getItem('posdata.luz.haz') || 'medio' };
+const luz = { brillo: () => num('posdata.luz.brillo', 70), calidez: () => num('posdata.luz.calidez', 55), haz: () => localStorage.getItem('posdata.luz.haz') || 'medio', ancho: () => num('posdata.luz.ancho', 100) };
 const HACES = [['amplio', 'Amplio'], ['medio', 'Medio'], ['estrecho', 'Estrecho'], ['foco', 'Foco'], ['difuso', 'Difuso']];
 // La carta solo se ve donde llega el haz: un charco de luz difuminado que sigue a la pluma; el resto queda en penumbra.
 const POZO = { amplio: [620, 520, .22], medio: [470, 400, .12], estrecho: [320, 430, .1], foco: [260, 260, .04], difuso: [700, 600, 0] };   // ancho, alto, parte del centro a plena luz
 function aplicaPozo() {
   const [rx, ry, h] = POZO[luz.haz()] || POZO.medio, r = document.documentElement.style;
-  r.setProperty('--pozo-rx', rx); r.setProperty('--pozo-ry', ry); r.setProperty('--pozo-h', h);
+  const a = luz.ancho() / 100; r.setProperty('--pozo-rx', Math.round(rx * a)); r.setProperty('--pozo-ry', Math.round(ry * (.6 + .4 * a))); r.setProperty('--pozo-h', h);
   r.setProperty('--k', Math.max(.5, Math.min(1, innerWidth / 1000)) + 'px');
 }
 addEventListener('resize', aplicaPozo);
@@ -1000,6 +1000,7 @@ async function vistaPerfil() {
       <p class="etq" style="text-align:center">Vista previa</p>
       <div class="ajuste-luz"><div class="fila entre"><b>Brillo</b><span class="etq" id="v-brillo"></span></div><input type="range" id="luz-brillo" min="10" max="100" step="5" value="${luz.brillo()}" aria-label="Brillo de la luz"><div class="fila entre ayuda"><span>Tenue</span><span>Brillante</span></div></div>
       <div class="ajuste-luz"><div class="fila entre"><b>Calidez de la luz</b><span class="etq" id="v-calidez"></span></div><input type="range" id="luz-calidez" min="0" max="100" step="5" value="${luz.calidez()}" aria-label="Calidez de la luz"><div class="fila entre ayuda"><span>Neutra</span><span>Ámbar cálido</span></div></div>
+      <div class="ajuste-luz"><div class="fila entre"><b>Ancho del haz</b><span class="etq" id="v-ancho"></span></div><input type="range" id="luz-ancho" min="50" max="160" step="5" value="${luz.ancho()}" aria-label="Ancho del haz de luz"><div class="fila entre ayuda"><span>Estrecho</span><span>Ancho</span></div></div>
       <div><p class="lbl" style="margin-bottom:8px">Forma del haz</p><div class="chips" id="l-haz">${HACES.map(([k, n]) => `<button type="button" class="chip ${luz.haz() === k ? 'on' : ''}" data-haz-op="${k}">${n}</button>`).join('')}</div></div></div>
     <div class="papel" id="avisos"><div><p class="etq">Avisos</p><h3 style="margin-top:4px">Qué te avisa</h3></div><p class="muted">Tú eliges qué llega y por dónde.</p>
       <div class="av-cab"><span></span><span class="etq">Móvil</span><span class="etq">Correo</span></div>
@@ -1044,6 +1045,8 @@ async function vistaPerfil() {
   };
   document.getElementById('l-modos').onclick = (e) => { const b = e.target.closest('[data-lmodo]'); if (!b) return; if (!premium()) return avisa('La lamparita es de Posdata completa.', true); localStorage.setItem('posdata.lampara', b.dataset.lmodo); document.querySelectorAll('#l-modos .chip').forEach((x) => x.classList.toggle('on', x === b)); suena('interruptor'); };
   const rotulos = () => { const b = luz.brillo(), c = luz.calidez(); document.getElementById('v-brillo').textContent = b < 40 ? 'Tenue' : b < 75 ? 'Medio' : 'Intenso'; document.getElementById('v-calidez').textContent = c ? c + '% cálida' : 'Neutra'; };
+  const rAncho = () => { document.getElementById('v-ancho').textContent = luz.ancho() + '%'; }; rAncho();
+  document.getElementById('luz-ancho').oninput = (e) => { localStorage.setItem('posdata.luz.ancho', e.target.value); aplicaLuz(); rAncho(); };
   rotulos();
   document.getElementById('luz-brillo').oninput = (e) => { localStorage.setItem('posdata.luz.brillo', e.target.value); aplicaLuz(); rotulos(); };
   document.getElementById('luz-calidez').oninput = (e) => { localStorage.setItem('posdata.luz.calidez', e.target.value); aplicaLuz(); rotulos(); };

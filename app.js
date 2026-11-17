@@ -2,7 +2,7 @@
 import { createClient } from './vendor/supabase.mjs';
 import { CONFIG } from './config.js';
 import { creaPdf, entregaPdf } from './pdf.js';
-import { conMaquina, sonidoActivo, fijaSonido, maquinaActiva, fijaMaquina, aplicaMaquina, suena } from './sonido.js';
+import { conMaquina, sonidoActivo, fijaSonido, maquinaActiva, fijaMaquina, aplicaMaquina, suena, TIPOS, tipoSonido, fijaTipo, volumen, fijaVolumen } from './sonido.js';
 import { reducirFoto, haySoporteDeVoz, empezarGrabacion, mmss, reproductorHtml, activaReproductores } from './media.js';
 
 const $app = document.getElementById('app');
@@ -20,7 +20,7 @@ const ERRORES = {
   fecha_no_valida: 'La fecha de apertura tiene que ser posterior a hoy.', momento_vacio: 'Pon un nombre al momento («Cuando estés triste»).',
   llave_no_valida: 'Ese código no abre ningún buzón.', demasiados_intentos: 'Demasiados intentos. Espera unos minutos.',
   invitacion_no_valida: 'La invitación no es válida o ha caducado.', ya_eres_miembro: 'Ya tienes acceso a este buzón.',
-  no_pendiente: 'Esa carta ya no está pendiente.', carta_no_editable: 'Esa carta ya no se puede editar: quien la recibe ya puede leerla.', usa_editar: 'Esa carta aún se puede editar directamente.', parte_no_valida: 'Ese texto ya no existe.', texto_largo: 'El texto es demasiado largo.', tema_repetido: 'Ya hay un tema con ese nombre.', tema_vacio: 'Escribe el nombre del tema.', demasiados_temas: 'Ya hay demasiados temas.', tema_no_valido: 'Ese tema ya no existe.',
+  no_pendiente: 'Esa carta ya no está pendiente.', cinta_sin_titulo: 'Ponle un nombre a la cinta.', cancion_sin_titulo: 'Escribe el título de la canción.', cara_llena: 'Esa cara ya tiene 6 canciones. Pasa alguna a la otra cara.', demasiadas_cintas: 'Ya tienes muchas cintas.', 'violates check constraint': 'Revisa los datos: el enlace tiene que empezar por https://', carta_no_editable: 'Esa carta ya no se puede editar: quien la recibe ya puede leerla.', usa_editar: 'Esa carta aún se puede editar directamente.', parte_no_valida: 'Ese texto ya no existe.', texto_largo: 'El texto es demasiado largo.', tema_repetido: 'Ya hay un tema con ese nombre.', tema_vacio: 'Escribe el nombre del tema.', demasiados_temas: 'Ya hay demasiados temas.', tema_no_valido: 'Ese tema ya no existe.',
   demasiados_adjuntos: 'Demasiadas fotos o audios en una carta.', adjunto_no_subido: 'No se ha podido subir un archivo. Inténtalo otra vez.', 'row-level security': 'No puedes subir archivos a este buzón.', 'maximum allowed size': 'Ese archivo pesa demasiado.', 'mime type': 'Ese tipo de archivo no está permitido.', correo_no_valido: 'Ese correo no parece válido.', no_autenticado: 'Entra primero.',
   'Invalid login credentials': 'Correo o contraseña incorrectos.', 'User already registered': 'Ya hay una cuenta con ese correo.',
   'Email not confirmed': 'Confirma tu correo antes de entrar (mira tu bandeja).',
@@ -224,6 +224,7 @@ let pestana = 'escribir';
 const TITULOS = {
   escribir: (rol, n) => rol === 'dueno' ? [`Escríbele a <em>${esc(n)}</em>`, 'Hoy, mañana, cuando te acuerdes. Se queda guardado.'] : [`Una carta para <em>${esc(n)}</em>`, 'Llegará de una vez, con tu firma.'],
   cartas: (rol, n) => rol === 'receptor' ? ['Tus <em>cartas</em>', 'Las que ya te esperan.'] : rol === 'dueno' ? [`Lo que le has <em>escrito</em>`, 'Todo lo que hay en el buzón de ' + n + '.'] : rol === 'escribe' ? ['Tus <em>cartas</em>', 'Las que has escrito para ' + n + '.'] : ['Las <em>cartas</em>', 'Lo que ya está sellado.'],
+  cintas: (rol, n) => rol === 'dueno' ? [`Las canciones de su <em>vida</em>`, 'Una cinta por cada etapa, con tu frase en cada canción.'] : [`Las canciones de <em>tu vida</em>`, 'Cada una con la frase de por qué es tuya.'],
   temas: () => ['Los <em>temas</em>', 'Para ordenar las cartas y que sea fácil encontrarlas.'],
   familia: () => ['Quién tiene la <em>llave</em>', 'Tu familia, la tarjeta de quien recibe y la persona de confianza.'],
 };
@@ -242,7 +243,7 @@ async function vistaBuzon(id) {
   const [yo] = await leer(sb.from('miembros').select('id, rol, firma, revisa').eq('buzon_id', id).eq('user_id', user.id));
   if (!buzon || !yo) { avisa('No tienes acceso a ese buzón.', true); location.hash = '#/'; return; }
   const rol = yo.rol;
-  const pest = rol === 'dueno' ? [['escribir', 'Escribir'], ['cartas', 'Cartas'], ['temas', 'Temas'], ['familia', 'Familia y llave']] : rol === 'escribe' ? [['escribir', 'Escribir'], ['cartas', 'Mis cartas']] : [['cartas', 'Cartas']];
+  const pest = rol === 'dueno' ? [['escribir', 'Escribir'], ['cartas', 'Cartas'], ['cintas', 'Cintas'], ['temas', 'Temas'], ['familia', 'Familia']] : rol === 'escribe' ? [['escribir', 'Escribir'], ['cartas', 'Mis cartas'], ['cintas', 'Cintas']] : [['cartas', 'Cartas'], ['cintas', 'Cintas']];
   if (!pest.some((p) => p[0] === pestana)) pestana = pest[0][0];
   const volver = `<div class="cab"><a class="volver" href="#/" aria-label="Volver">←</a><span class="pildora">El buzón de ${esc(buzon.nombre)}</span></div>`;
   if (rol === 'confianza') { dentro(`${volver}<div class="centro vista"><p class="etq">Persona de confianza</p><h1>El buzón de <em>${esc(buzon.nombre)}</em></h1><p class="muted">Eres quien entrega las cartas si hace falta. No puedes leer ninguna: solo cuidar de que lleguen.</p></div>`); return; }
@@ -254,6 +255,7 @@ async function vistaBuzon(id) {
   const panel = document.getElementById('panel');
   if (pestana === 'escribir') pintaEscribir(panel, id, rol, buzon, yo, temas);
   else if (pestana === 'cartas') await pintaCartas(panel, id, rol, buzon, temas, yo);
+  else if (pestana === 'cintas') await pintaCintas(panel, id, rol, buzon);
   else if (pestana === 'temas') await pintaTemas(panel, id, temas);
   else await pintaFamilia(panel, id);
 }
@@ -626,6 +628,8 @@ async function vistaPerfil() {
       <p class="muted">Todo lo que escribes en una carta sale con la tipografía de una máquina de escribir antigua, y suena como ella.</p>
       <label class="interruptor"><span><b>Tipografía de máquina de escribir</b><em class="etq">Al escribir y al leer las cartas</em></span><input type="checkbox" id="sw-maquina" ${maquinaActiva() ? 'checked' : ''}></label>
       <label class="interruptor"><span><b>Sonido de las teclas</b><em class="etq">Teclas, espacio, timbre y retorno de carro</em></span><input type="checkbox" id="sw-sonido" ${sonidoActivo() ? 'checked' : ''}></label>
+      <div><p class="lbl" style="margin-bottom:8px">Cómo suena</p><div class="chips" id="s-tipos">${Object.entries(TIPOS).map(([k, v]) => `<button type="button" class="chip ${tipoSonido() === k ? 'on' : ''}" data-tipo="${k}">${v.nombre}</button>`).join('')}</div></div>
+      <label class="rango"><span>Volumen</span><input type="range" id="s-vol" min="10" max="100" step="5" value="${Math.round(volumen() * 100)}" aria-label="Volumen de la máquina de escribir"></label>
       <p class="maquina-prueba" id="m-prueba" tabindex="0">Pulsa aquí y prueba el sonido.</p></div>
     <div class="papel" id="avisos"><div><p class="etq">Avisos</p><h3 style="margin-top:4px">Qué te avisa</h3></div><p class="muted">Tú eliges qué llega y por dónde.</p>
       <div class="av-cab"><span></span><span class="etq">Móvil</span><span class="etq">Correo</span></div>
@@ -642,6 +646,9 @@ async function vistaPerfil() {
   // máquina de escribir y avisos
   document.getElementById('sw-maquina').onchange = (e) => { fijaMaquina(e.target.checked); };
   document.getElementById('sw-sonido').onchange = (e) => { fijaSonido(e.target.checked); if (e.target.checked) suena('retorno'); };
+  const toca = () => { suena('tecla', 'e'); setTimeout(() => suena('tecla', 'r'), 130); setTimeout(() => suena('espacio'), 250); setTimeout(() => suena('tecla', 'o'), 380); setTimeout(() => suena('retorno'), 560); };
+  document.getElementById('s-tipos').onclick = (e) => { const t = e.target.closest('[data-tipo]'); if (!t) return; fijaTipo(t.dataset.tipo); document.querySelectorAll('#s-tipos .chip').forEach((x) => x.classList.toggle('on', x === t)); toca(); };
+  let tVol; document.getElementById('s-vol').oninput = (e) => { fijaVolumen(e.target.value / 100); clearTimeout(tVol); tVol = setTimeout(() => suena('tecla', 'a'), 150); };
   const prueba = document.getElementById('m-prueba'); conMaquina(prueba); prueba.contentEditable = 'true'; prueba.spellcheck = false;
   let tAv; document.getElementById('avisos').addEventListener('change', (e) => {
     if (!e.target.dataset.av) return; clearTimeout(tAv);
@@ -675,6 +682,114 @@ async function vistaPerfil() {
     if (!confirm('¿Quitar tu letra? Las cartas volverán a verse con la tipografía normal.')) return;
     try { const vieja = await rpc('quitar_fuente'); if (vieja) sb.storage.from('fuentes').remove([vieja]).catch(() => {}); letras.delete(user.id); avisa('Letra quitada.'); vistaPerfil(); } catch (e) { avisa(msgError(e), true); }
   });
+}
+
+// ---------- cintas: «las canciones de su vida» ----------
+const COLORES_CINTA = ['#E8D9B5', '#D9A27C', '#B7C2A6', '#A9B8C8', '#D8B4B0', '#C9B8D4'];
+const SUG_CINTA = ['Los veranos', 'Para dormir', 'Su primer año', 'Las fiestas', 'Para los días malos', 'Cuando eras bebé'];
+let cintaAbierta = null, caraAbierta = 'A';
+const casete = (titulo, color, lado = 'A') => `<div class="tape" style="--tc:${esc(color)}"><i class="tape-screw s1"></i><i class="tape-screw s2"></i><i class="tape-screw s3"></i><i class="tape-screw s4"></i><div class="tape-label"><span class="tape-side">${lado}</span><span class="tape-title">${esc(titulo)}</span><div class="tape-win"><i class="reel reel-l"></i><i class="tape-band"></i><i class="reel reel-r"></i></div></div><i class="tape-foot"></i></div>`;
+const idSpotify = (u) => { const m = String(u || '').match(/^https:\/\/open\.spotify\.com\/(?:intl-[a-z]+\/)?track\/([A-Za-z0-9]+)/); return m ? m[1] : null; };
+const busquedaSpotify = (c) => 'https://open.spotify.com/search/' + encodeURIComponent((c.titulo + ' ' + (c.artista || '')).trim());
+const ordenadas = (cin, cara) => (cin.canciones || []).filter((c) => c.cara === cara).sort((x, y) => x.orden - y.orden);
+
+async function pintaCintas(panel, buzon, rol, b) {
+  const dueña = rol === 'dueno';
+  if (cintaAbierta && cintaAbierta.buzon !== buzon) cintaAbierta = null;
+  let cintas;
+  try { cintas = await leer(sb.from('cintas').select('id, titulo, color, publicada, orden, canciones(id, cara, orden, titulo, artista, enlace, frase)').eq('buzon_id', buzon).order('orden').order('creada_en')); }
+  catch (e) { console.warn(e); panel.innerHTML = '<div class="papel vacio"><span class="mini-sobre"><i></i></span><h3>Las cintas aún no están activadas</h3><p class="muted">Falta un paso en la base de datos. En cuanto se haga, aparecerán aquí.</p></div>'; return; }
+  const rec = () => pintaCintas(panel, buzon, rol, b);
+  const abierta = cintaAbierta && cintas.find((c) => c.id === cintaAbierta.id);
+  if (abierta) return vistaCinta(panel, buzon, rol, b, abierta, rec);
+  cintaAbierta = null;
+  const total = cintas.reduce((n, c) => n + (c.canciones || []).length, 0);
+  panel.innerHTML = `${cintas.length ? `<p class="etq">${cintas.length} cinta${cintas.length === 1 ? '' : 's'} · ${total} canci${total === 1 ? 'ón' : 'ones'}</p>` : ''}
+    <div class="estante">${cintas.map((c) => `<button class="cinta-item" data-cinta="${c.id}" aria-label="${esc(c.titulo)}">${casete(c.titulo, c.color)}<span class="etq">${(c.canciones || []).length} canci${(c.canciones || []).length === 1 ? 'ón' : 'ones'}${dueña ? (c.publicada ? ' · lista para ' + esc(b.nombre) : ' · borrador') : ''}</span></button>`).join('')}
+      ${dueña ? `<button class="cinta-item nueva" id="c-nueva"><span class="hueco">+</span><span class="etq">Una cinta nueva</span></button>` : ''}</div>
+    ${!cintas.length && !dueña ? `<div class="papel vacio"><span class="mini-sobre"><i></i></span><h3>Aún no hay cintas</h3><p class="muted">Cuando se prepare una, aparecerá aquí.</p></div>` : ''}
+    ${!cintas.length && dueña ? `<p class="muted">Una cinta por cada etapa de su vida: «Cuando eras bebé», «Los veranos», «Para los días malos»… Con las canciones y la frase de por qué son suyas.</p>` : ''}`;
+  panel.querySelectorAll('[data-cinta]').forEach((x) => (x.onclick = () => { cintaAbierta = { buzon, id: x.dataset.cinta }; caraAbierta = 'A'; rec(); }));
+  document.getElementById('c-nueva')?.addEventListener('click', () => formCinta(panel, buzon, rol, b, rec));
+}
+
+function formCinta(panel, buzon, rol, b, rec) {
+  let color = COLORES_CINTA[0];
+  panel.innerHTML = `<form class="papel" id="f-cinta"><div><p class="etq">Nueva</p><h3 style="margin-top:4px">Una cinta <em>nueva</em></h3></div>
+    <div class="cinta-vista" id="cv">${casete('Mi cinta', color)}</div>
+    <label><span>Cómo se llama</span><input name="t" maxlength="28" required placeholder="Los veranos en el pueblo" autocomplete="off"></label>
+    <div class="chips">${SUG_CINTA.map((x) => `<button type="button" class="chip" data-sug="${esc(x)}">${esc(x)}</button>`).join('')}</div>
+    <div><p class="lbl" style="margin-bottom:8px">Color de la etiqueta</p><div class="colores">${COLORES_CINTA.map((c, i) => `<button type="button" style="--c:${c}" class="${i === 0 ? 'is-on' : ''}" data-col="${c}" aria-label="Color ${i + 1}"></button>`).join('')}</div></div>
+    <div class="fila"><button class="btn">Crear la cinta</button><button type="button" class="enlace" id="c-cancel">Cancelar</button></div></form>`;
+  const f = document.getElementById('f-cinta'), pinta = () => (document.getElementById('cv').innerHTML = casete(f.t.value.trim() || 'Mi cinta', color));
+  f.t.oninput = pinta; f.t.focus();
+  panel.querySelectorAll('[data-sug]').forEach((x) => (x.onclick = () => { f.t.value = x.dataset.sug; pinta(); }));
+  panel.querySelectorAll('[data-col]').forEach((x) => (x.onclick = () => { color = x.dataset.col; panel.querySelectorAll('[data-col]').forEach((y) => y.classList.toggle('is-on', y === x)); pinta(); }));
+  document.getElementById('c-cancel').onclick = rec;
+  f.onsubmit = async (ev) => { ev.preventDefault(); try { const id = await rpc('crear_cinta', { p_buzon: buzon, p_titulo: f.t.value, p_color: color }); cintaAbierta = { buzon, id }; caraAbierta = 'A'; rec(); } catch (e) { avisa(msgError(e), true); } };
+}
+
+function vistaCinta(panel, buzon, rol, b, cin, rec) {
+  const dueña = rol === 'dueno', hay = (cara) => ordenadas(cin, cara).length;
+  const pinta = () => {
+    const lista = ordenadas(cin, caraAbierta), otra = caraAbierta === 'A' ? 'B' : 'A';
+    panel.innerHTML = `<button class="enlace" id="c-atras" style="justify-self:start">← Todas las cintas</button>
+      <div class="deck"><p class="etq" style="text-align:center">Cinta · Cara ${caraAbierta}</p><div class="cinta-vista grande" id="cv">${casete(cin.titulo, cin.color, caraAbierta)}</div>
+        <div class="deck-pie"><span class="etq">${hay('A') + hay('B')} de 12 canciones</span><button class="btn peq sec" id="c-flip">Dar la vuelta · Cara ${otra}</button></div></div>
+      ${dueña ? `<form class="papel" id="f-nombre-c"><div class="fila entre"><div><p class="etq">La cinta</p><h3 style="margin-top:4px">Nombre y color</h3></div><button type="button" class="enlace" id="c-borra">Borrar la cinta</button></div>
+        <label><span>Nombre</span><input name="t" maxlength="28" required value="${esc(cin.titulo)}"></label>
+        <div class="colores">${COLORES_CINTA.map((c) => `<button type="button" style="--c:${c}" class="${c.toLowerCase() === cin.color.toLowerCase() ? 'is-on' : ''}" data-col="${c}" aria-label="Color"></button>`).join('')}</div>
+        <label class="interruptor"><span><b>Lista para ${esc(b.nombre)}</b><em class="etq">${cin.publicada ? 'Ya puede escucharla' : 'Todavía es un borrador: solo la ves tú'}</em></span><input type="checkbox" id="c-publica" ${cin.publicada ? 'checked' : ''}></label>
+        <div><button class="btn peq">Guardar el nombre</button></div></form>` : ''}
+      <ol class="trks" id="trks">${lista.length ? lista.map((c, i) => `<li class="trk" data-id="${c.id}"><span class="n">${i + 1}</span><div class="m"><b>${esc(c.titulo)}</b>${c.artista ? `<span class="etq">${esc(c.artista)}</span>` : ''}${c.frase ? `<span class="mano">${esc(c.frase)}</span>` : ''}<div class="embed" hidden></div></div>
+        <div class="acc"><button type="button" class="redondo" data-esc="${c.id}" aria-label="Escuchar ${esc(c.titulo)}" title="Escuchar">▶</button>${dueña ? `<button type="button" class="redondo peq" data-up="${c.id}" aria-label="Subir" ${i === 0 ? 'disabled' : ''}>↑</button><button type="button" class="redondo peq" data-dn="${c.id}" aria-label="Bajar" ${i === lista.length - 1 ? 'disabled' : ''}>↓</button><button type="button" class="redondo peq" data-sw="${c.id}" aria-label="Pasar a la cara ${otra}" title="Pasar a la cara ${otra}">⇄</button><button type="button" class="redondo peq" data-ed="${c.id}" aria-label="Editar" title="Editar">✎</button><button type="button" class="redondo peq" data-bo="${c.id}" aria-label="Quitar" title="Quitar">✕</button>` : ''}</div></li>`).join('') : `<li class="trk vacio-c"><span class="mano">${dueña ? `La cara ${caraAbierta} está vacía. Añade la primera canción.` : `La cara ${caraAbierta} está vacía.`}</span></li>`}</ol>
+      ${dueña ? (lista.length < 6 ? `<div id="c-anadir"><button class="btn ancho" id="c-mas">Añadir una canción a la cara ${caraAbierta}</button></div>` : `<p class="muted" style="text-align:center">La cara ${caraAbierta} está llena (6 canciones).</p>`) : ''}
+      <div class="papel"><p class="etq">Spotify</p><h3 style="margin-top:4px">Llevar esta cinta a <em>Spotify</em></h3>
+        <p class="muted" style="margin:6px 0 12px">Copia las ${hay('A') + hay('B')} canciones en orden, cara A y luego cara B, y pégalas en una lista nueva de Spotify.</p>
+        <button class="btn peq" id="sp-copiar" ${hay('A') + hay('B') ? '' : 'disabled'}>Copiar las canciones</button>
+        <p class="ayuda" style="margin-top:10px">Crear la lista directamente en tu cuenta de Spotify llegará más adelante. Mientras tanto, cada canción tiene su botón ▶ para escucharla.</p></div>`;
+    // navegación
+    document.getElementById('c-atras').onclick = () => { cintaAbierta = null; rec(); };
+    document.getElementById('c-flip').onclick = () => { const t = panel.querySelector('.tape'); t.classList.add('giro'); setTimeout(() => { caraAbierta = otra; pinta(); const n = panel.querySelector('.tape'); n.classList.add('giro'); requestAnimationFrame(() => requestAnimationFrame(() => n.classList.remove('giro'))); const l = document.getElementById('trks'); l?.classList.add('cambia'); }, 320); };
+    // escuchar
+    panel.querySelectorAll('[data-esc]').forEach((x) => (x.onclick = () => {
+      const c = lista.find((k) => k.id === x.dataset.esc), li = x.closest('.trk'), em = li.querySelector('.embed'), sp = idSpotify(c.enlace);
+      if (sp) { if (em.hidden) { em.innerHTML = `<iframe title="Spotify: ${esc(c.titulo)}" src="https://open.spotify.com/embed/track/${sp}?utm_source=generator" width="100%" height="80" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" style="border-radius:12px"></iframe>`; em.hidden = false; x.textContent = '■'; } else { em.hidden = true; em.innerHTML = ''; x.textContent = '▶'; } }
+      else window.open(c.enlace || busquedaSpotify(c), '_blank', 'noopener');
+    }));
+    document.getElementById('sp-copiar').onclick = async () => {
+      const txt = [...ordenadas(cin, 'A'), ...ordenadas(cin, 'B')].map((c) => `${c.titulo}${c.artista ? ' - ' + c.artista : ''}`).join('\n');
+      try { await navigator.clipboard.writeText(txt); avisa('Canciones copiadas. Pégalas en una lista nueva de Spotify.'); } catch { avisa('No se ha podido copiar.', true); }
+    };
+    if (!dueña) return;
+    // nombre, color y publicar
+    let color = cin.color;
+    panel.querySelectorAll('[data-col]').forEach((x) => (x.onclick = () => { color = x.dataset.col; panel.querySelectorAll('.colores [data-col]').forEach((y) => y.classList.toggle('is-on', y === x)); document.getElementById('cv').innerHTML = casete(document.querySelector('#f-nombre-c [name=t]').value || cin.titulo, color, caraAbierta); }));
+    document.getElementById('f-nombre-c').onsubmit = async (ev) => { ev.preventDefault(); try { await rpc('editar_cinta', { p_cinta: cin.id, p_titulo: ev.target.t.value, p_color: color }); avisa('Guardado.'); rec(); } catch (e) { avisa(msgError(e), true); } };
+    document.getElementById('c-publica').onchange = async (e) => { try { await rpc('editar_cinta', { p_cinta: cin.id, p_publicada: e.target.checked }); avisa(e.target.checked ? `Ahora ${b.nombre} puede escucharla.` : 'Vuelve a ser un borrador.'); rec(); } catch (er) { e.target.checked = !e.target.checked; avisa(msgError(er), true); } };
+    document.getElementById('c-borra').onclick = async () => { if (!confirm(`¿Borrar la cinta «${cin.titulo}» y sus canciones?`)) return; try { await rpc('borrar_cinta', { p_cinta: cin.id }); cintaAbierta = null; avisa('Cinta borrada.'); rec(); } catch (e) { avisa(msgError(e), true); } };
+    // canciones
+    const accion = (sel, fn) => panel.querySelectorAll(sel).forEach((x) => (x.onclick = async () => { try { await fn(x); rec(); } catch (e) { avisa(msgError(e), true); } }));
+    accion('[data-up]', (x) => rpc('mover_cancion', { p_cancion: x.dataset.up, p_paso: -1 }));
+    accion('[data-dn]', (x) => rpc('mover_cancion', { p_cancion: x.dataset.dn, p_paso: 1 }));
+    accion('[data-sw]', (x) => rpc('cambiar_cara', { p_cancion: x.dataset.sw }));
+    panel.querySelectorAll('[data-bo]').forEach((x) => (x.onclick = async () => { const c = lista.find((k) => k.id === x.dataset.bo); if (!confirm(`¿Quitar «${c.titulo}» de la cinta?`)) return; try { await rpc('borrar_cancion', { p_cancion: c.id }); rec(); } catch (e) { avisa(msgError(e), true); } }));
+    const formCancion = (zona, c, alGuardar) => {
+      zona.innerHTML = `<form class="papel f-cancion"><div><p class="etq">${c ? 'Editar' : 'Cara ' + caraAbierta}</p><h3 style="margin-top:4px">${c ? 'Cambiar la <em>canción</em>' : 'Añadir una <em>canción</em>'}</h3></div>
+        <label><span>Canción</span><input name="t" maxlength="80" required value="${esc(c?.titulo || '')}" placeholder="Here Comes the Sun" autocomplete="off"></label>
+        <label><span>Artista</span><input name="a" maxlength="80" value="${esc(c?.artista || '')}" placeholder="The Beatles" autocomplete="off"></label>
+        <label><span>¿Por qué es suya?</span><input name="f" maxlength="120" value="${esc(c?.frase || '')}" placeholder="Sonaba el día que naciste" autocomplete="off"></label>
+        <p class="ayuda" style="margin-top:-8px">Esta frase es lo que da valor a la canción: dentro de treinta años el enlace puede haber cambiado, tu frase no.</p>
+        <label><span>Enlace de Spotify · opcional</span><input name="e" type="url" maxlength="300" value="${esc(c?.enlace || '')}" placeholder="https://open.spotify.com/track/…" autocomplete="off"></label>
+        <p class="ayuda" style="margin-top:-8px">En Spotify: ••• → Compartir → Copiar enlace de la canción. Con él se escucha aquí mismo.</p>
+        <div class="fila"><button class="btn">${c ? 'Guardar' : 'Grabar en la cinta'}</button><button type="button" class="enlace" data-no>Cancelar</button></div></form>`;
+      const fo = zona.querySelector('form'); fo.t.focus(); fo.querySelector('[data-no]').onclick = pinta;
+      fo.onsubmit = async (ev) => { ev.preventDefault(); try { await alGuardar(fo); rec(); } catch (e) { avisa(msgError(e), true); } };
+    };
+    document.getElementById('c-mas')?.addEventListener('click', () => { formCancion(document.getElementById('c-anadir'), null, (fo) => rpc('anadir_cancion', { p_cinta: cin.id, p_cara: caraAbierta, p_titulo: fo.t.value, p_artista: fo.a.value, p_enlace: fo.e.value || null, p_frase: fo.f.value })); });
+    panel.querySelectorAll('[data-ed]').forEach((x) => (x.onclick = () => { const c = lista.find((k) => k.id === x.dataset.ed), li = x.closest('.trk'); li.classList.add('editando'); formCancion(li, c, (fo) => rpc('editar_cancion', { p_cancion: c.id, p_titulo: fo.t.value, p_artista: fo.a.value, p_enlace: fo.e.value, p_frase: fo.f.value, p_quitar_enlace: !fo.e.value.trim() })); }));
+  };
+  pinta();
 }
 
 // ---------- temas (la dueña los crea, renombra y borra) ----------

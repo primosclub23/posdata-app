@@ -755,7 +755,7 @@ body.lampara .hoja { filter: brightness(var(--hoja-brillo, .94)) sepia(var(--hoj
 /* la hoja se ilumina solo donde llega el haz */
 :root { --sombra-a: .6; }
 :root { --pozo-rx: 470; --pozo-ry: 400; --pozo-h: .12; --k: 1px; --foco-y: 42vh; }
-.sombra-haz { position: absolute; left: var(--lx, 50%); top: 0; width: 3600px; height: 3600px; transform: translate(-50%, calc(var(--foco-y) - 1800px)); transition: transform .7s cubic-bezier(.2,.7,.2,1); pointer-events: none;
+.sombra-haz { position: absolute; left: var(--lx, 50%); top: 0; width: 3600px; height: 3600px; transform: translate(-50%, calc(var(--foco-y) - 1800px)); transition: transform 1.4s cubic-bezier(.3,.6,.2,1); pointer-events: none;
   background: radial-gradient(ellipse calc(var(--pozo-rx) * var(--k)) calc(var(--pozo-ry) * var(--k)) at 50% 50%, transparent calc(var(--pozo-h) * 100%), rgba(8, 6, 4, calc(var(--sombra-a) * .4)) 45%, rgba(8, 6, 4, calc(var(--sombra-a) * .8)) 72%, rgba(8, 6, 4, var(--sombra-a)) 100%); }
 #sombra-haz { position: fixed; inset: 0; z-index: 20; overflow: hidden; pointer-events: none; opacity: 0; visibility: hidden; transition: opacity .9s ease, visibility .9s; --lx: 50%; }
 body.lampara #sombra-haz { opacity: 1; visibility: visible; }
@@ -777,11 +777,13 @@ body.lampara #haz-delante { opacity: 1; visibility: visible; }
   --w: calc(var(--pozo-rx) * var(--k) * .7); --fin: calc(var(--foco-y) + var(--pozo-ry) * var(--k) * .35);
   clip-path: polygon(calc(var(--lx) - 12px) var(--bombilla), calc(var(--lx) + 12px) var(--bombilla), calc(var(--lx) + var(--w)) var(--fin), calc(var(--lx) - var(--w)) var(--fin));
   background: linear-gradient(to bottom, rgba(var(--luz-rgb), calc(var(--luz-a1) * .85)) var(--bombilla), rgba(var(--luz-rgb), calc(var(--luz-a2) * .8)) calc(var(--bombilla) + (var(--fin) - var(--bombilla)) * .5), rgba(var(--luz-rgb), calc(var(--luz-a2) * .35)) var(--fin));
-  transition: clip-path .7s cubic-bezier(.2,.7,.2,1); }
+  transition: clip-path 1.4s cubic-bezier(.3,.6,.2,1); }
 [data-haz="foco"] .haz-cuerpo { --w: calc(var(--pozo-rx) * var(--k) * .45); }
 @media print { #haz-delante { display: none !important; } }
 .noche-prueba .sombra-haz { z-index: 1; } .noche-prueba .cono { z-index: 2; }
 
 .haz-base { position: absolute; left: var(--lx); top: var(--fin, 0); width: calc(var(--pozo-rx) * var(--k) * 1.4); height: calc(var(--pozo-rx) * var(--k) * .34); transform: translate(-50%, -50%); border-radius: 50%; --fin: calc(var(--foco-y) + var(--pozo-ry) * var(--k) * .35);
-  background: radial-gradient(ellipse at center, rgba(var(--luz-rgb), calc(var(--luz-a2) * .5)) 0%, rgba(var(--luz-rgb), calc(var(--luz-a2) * .55)) 60%, rgba(var(--luz-rgb), 0) 100%); transition: top .7s cubic-bezier(.2,.7,.2,1); }
+  background: radial-gradient(ellipse at center, rgba(var(--luz-rgb), calc(var(--luz-a2) * .5)) 0%, rgba(var(--luz-rgb), calc(var(--luz-a2) * .55)) 60%, rgba(var(--luz-rgb), 0) 100%); transition: top 1.4s cubic-bezier(.3,.6,.2,1); }
 [data-haz="foco"] .haz-base { width: calc(var(--pozo-rx) * var(--k) * 1.05); }
+/* el aviso de guardado ocupa siempre su propia línea: así la hoja no se mueve al guardar */
+.hoja .etq.fecha .b-estado { display: block; margin: 4px 0 0; min-height: 1.5em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

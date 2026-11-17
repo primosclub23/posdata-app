@@ -271,6 +271,7 @@ function aplicaPozo() {
   r.setProperty('--k', Math.max(.5, Math.min(1, innerWidth / 1000)) + 'px');
 }
 addEventListener('resize', aplicaPozo);
+let focoY = null;
 function sigueLaPluma() {
   if (!document.body.classList.contains('lampara')) return;
   const el = document.activeElement; let y = innerHeight * .42;
@@ -283,7 +284,9 @@ function sigueLaPluma() {
       y = r.top + m.offsetTop + m.offsetHeight / 2 - el.scrollTop; esp.remove();
     } else y = r.top + r.height / 2;
   }
-  document.documentElement.style.setProperty('--foco-y', Math.max(150, Math.min(innerHeight - 110, y)).toFixed(0) + 'px');
+  // la luz no salta en cada renglón: solo se mueve cuando escribes lejos de ella
+  const objetivo = Math.max(150, Math.min(innerHeight - 110, y));
+  if (focoY === null || Math.abs(objetivo - focoY) > 130) { focoY = objetivo; document.documentElement.style.setProperty('--foco-y', focoY.toFixed(0) + 'px'); }
 }
 ['input', 'keyup', 'click', 'focusin', 'scroll'].forEach((t) => addEventListener(t, () => requestAnimationFrame(sigueLaPluma), true));
 function aplicaLuz() {
@@ -350,7 +353,7 @@ function aplicaLampara(sonar = false) {
   const n = document.getElementById('noche');
   if (on && !document.body.classList.contains('lampara')) { const fr = document.getElementById('lampara-frente'); for (const x of [n, fr]) x.classList.remove('enciende'); void n.offsetWidth; for (const x of [n, fr]) x.classList.add('enciende'); if (sonar) suena('interruptor'); }
   else if (!on && sonar && document.body.classList.contains('lampara')) suena('interruptor');
-  document.body.classList.toggle('lampara', on); if (on) setTimeout(sigueLaPluma, 50);
+  document.body.classList.toggle('lampara', on); if (on) { focoY = null; setTimeout(sigueLaPluma, 50); }
   const b = document.getElementById('b-lampara'); if (b) { b.setAttribute('aria-pressed', on); b.title = on ? 'Apagar la lamparita' : 'Encender la lamparita'; b.setAttribute('aria-label', b.title); }
   if (on) window.scrollTo({ top: 0 });
 }

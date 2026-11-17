@@ -74,6 +74,10 @@ const SON = {
     if (P.timbre) timbre(c, o, tf + .12, .09);
   },
   aviso(c, o, t, P) { timbre(c, o, t, .2); },
+  interruptor(c, o, t) { // el «clic» de un interruptor antiguo: pulsa, y rebota
+    ruido(c, o, t, .005, 'highpass', 2200, .8, .9); modo(c, o, t, 3400, .1, .02); modo(c, o, t, 190, .35, .06, 110);
+    ruido(c, o, t + .055, .004, 'highpass', 3000, .8, .45); modo(c, o, t + .055, 2600, .05, .015);
+  },
 };
 function timbre(c, o, t, v) { // el timbre: campana de latón, parciales poco armónicos
   modo(c, o, t, 2093, v * .55, 1.3); modo(c, o, t, 4231, v * .3, .9); modo(c, o, t, 6350, v * .14, .55); modo(c, o, t, 2210, v * .15, .9);

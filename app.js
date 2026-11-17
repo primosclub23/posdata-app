@@ -2,6 +2,7 @@
 import { createClient } from './vendor/supabase.mjs';
 import { CONFIG } from './config.js';
 import { creaPdf, entregaPdf } from './pdf.js';
+import { qrcode } from './vendor/qrgen.mjs';
 import { conMaquina, sonidoActivo, fijaSonido, maquinaActiva, fijaMaquina, aplicaMaquina, suena, TIPOS, tipoSonido, fijaTipo, volumen, fijaVolumen, hayMuestras, precarga } from './sonido.js';
 import { reducirFoto, haySoporteDeVoz, empezarGrabacion, mmss, reproductorHtml, activaReproductores } from './media.js';
 
@@ -56,9 +57,11 @@ async function ruta() {
   const h = location.hash || '#/';
   try {
     if (h.startsWith('#invitar/')) return vistaInvitacion(decodeURIComponent(h.slice(9)));
+    if (h.startsWith('#/qr/') && !user) return vistaEntrada('entrar', false, false, 'qr');
     if (!user) return h === '#/codigo' ? vistaCodigo() : vistaEntrada('inicio');
     if (h === '#/codigo') return vistaCodigo();
     if (h === '#/perfil') return vistaPerfil();
+    if (h.startsWith('#/qr/')) return vistaAprobarQr(h.slice(5).toUpperCase());
     if (h.startsWith('#/b/')) { const [bid, extra] = h.slice(4).split('/'); return extra === 'memoria' ? vistaMemoria(bid) : vistaBuzon(bid); }
     return vistaInicio();
   } catch (e) { avisa(msgError(e), true); console.error(e); }
@@ -104,8 +107,10 @@ function vistaPortada() {
       <span class="cta-txt">Crear mi cuenta <span class="cta-flecha">→</span></span>
       <span class="cta-sub">Gratis para empezar · sin tarjeta</span>
     </button>
-    <div class="pie-form fila entre"><button type="button" class="enlace" id="entrar">Ya tengo cuenta</button><a class="enlace" href="#/codigo">Tengo una tarjeta con código</a></div>`);
+    <div class="pie-form fila entre"><button type="button" class="enlace" id="entrar">Ya tengo cuenta</button><a class="enlace" href="#/codigo">Tengo una tarjeta con código</a></div>
+    ${enOrdenador() ? '<button type="button" class="enlace" id="ir-qr" style="justify-self:start">Entrar con el código QR del móvil</button>' : ''}`);
   document.getElementById('entrar').onclick = () => vistaEntrada('entrar');
+  document.getElementById('ir-qr')?.addEventListener('click', () => vistaEntrada('qr'));
   const b = document.getElementById('crear');
   b.onclick = () => {
     if (SIN_ANIMAR) return vistaEntrada('crear');
@@ -117,10 +122,11 @@ function vistaPortada() {
   };
 }
 
-function vistaEntrada(modo = 'entrar', invitada = false, desdeSobre = false) {
+function vistaEntrada(modo = 'entrar', invitada = false, desdeSobre = false, contexto = '') {
   if (modo === 'inicio') return vistaPortada();
+  if (modo === 'qr') return vistaQr();
   const nuevo = modo === 'crear';
-  entrada(invitada ? 'Te han invitado a un <em>buzón</em>' : LEMA, SUB, `
+  entrada(invitada ? 'Te han invitado a un <em>buzón</em>' : contexto === 'qr' ? 'Entra para dejar entrar a tu <em>ordenador</em>' : LEMA, SUB, `
     <p class="etq">${invitada ? 'Invitación' : nuevo ? 'Crear tu cuenta' : 'Entrar'}</p>
     <h2>${invitada ? 'Crea tu cuenta y <em>entra</em>' : nuevo ? 'Empieza tu <em>primer buzón</em>' : 'Qué bien <em>verte</em>'}</h2>
     <form id="f" class="${desdeSobre ? 'sale' : ''}">
@@ -128,8 +134,10 @@ function vistaEntrada(modo = 'entrar', invitada = false, desdeSobre = false) {
       <label><span>Contraseña${nuevo ? ' · mínimo 8' : ''}</span><input type="password" name="clave" required minlength="${nuevo ? 8 : 1}" autocomplete="${nuevo ? 'new-password' : 'current-password'}"></label>
       <button class="btn ancho">${nuevo ? 'Crear cuenta' : 'Entrar'}</button>
     </form>
-    <div class="pie-form fila entre"><button type="button" class="enlace" id="cambia">${nuevo ? 'Ya tengo cuenta' : 'Crear una cuenta'}</button><a class="enlace" href="#/codigo">Tengo una tarjeta con código</a></div>`);
+    <div class="pie-form fila entre"><button type="button" class="enlace" id="cambia">${nuevo ? 'Ya tengo cuenta' : 'Crear una cuenta'}</button><a class="enlace" href="#/codigo">Tengo una tarjeta con código</a></div>
+    ${enOrdenador() && !invitada && contexto !== 'qr' ? '<button type="button" class="enlace" id="ir-qr" style="justify-self:start">Entrar con el código QR del móvil</button>' : ''}`);
   document.getElementById('cambia').onclick = () => vistaEntrada(nuevo ? 'entrar' : 'crear', invitada);
+  document.getElementById('ir-qr')?.addEventListener('click', () => vistaEntrada('qr'));
   document.getElementById('f').onsubmit = async (ev) => {
     ev.preventDefault(); const f = new FormData(ev.target); const b = ev.target.querySelector('.btn'); b.disabled = true;
     try {
@@ -586,6 +594,110 @@ async function vistaMemoria(id) {
   } catch (e) { avisa(msgError(e), true); console.error(e); location.hash = '#/b/' + id; }
 }
 
+// ---------- entrar en el ordenador con el móvil (código QR) ----------
+const enOrdenador = () => matchMedia('(hover: hover) and (pointer: fine)').matches;
+const sha256hex = async (t) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)))].map((b) => b.toString(16).padStart(2, '0')).join('');
+const aleatorio = (n) => btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(n)))).replace(/[+/=]/g, '').slice(0, n * 1.3 | 0);
+function etiquetaDispositivo() {
+  const u = navigator.userAgent;
+  const nav = /Edg\//.test(u) ? 'Edge' : /Firefox\//.test(u) ? 'Firefox' : /Chrome\//.test(u) ? 'Chrome' : /Safari\//.test(u) ? 'Safari' : 'un navegador';
+  const so = /Windows/.test(u) ? 'Windows' : /Mac OS X|Macintosh/.test(u) ? 'Mac' : /Android/.test(u) ? 'Android' : /Linux/.test(u) ? 'Linux' : 'un ordenador';
+  return `${nav} en ${so}`;
+}
+// El QR: módulos redondeados, los tres cuadros de las esquinas en teja y el icono en el centro.
+function qrSvg(texto) {
+  const q = qrcode(0, 'Q'); q.addData(texto); q.make(); const n = q.getModuleCount(), m = 2, T = n + m * 2;
+  const buscador = (x, y) => (x < 7 && y < 7) || (x >= n - 7 && y < 7) || (x < 7 && y >= n - 7);
+  const centro = Math.floor(n * .2), c0 = Math.floor((n - centro) / 2);
+  let d = '';
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    if (!q.isDark(y, x) || buscador(x, y) || (x >= c0 && x < c0 + centro && y >= c0 && y < c0 + centro)) continue;
+    d += `<rect x="${x + m + .06}" y="${y + m + .06}" width=".88" height=".88" rx=".3"/>`;
+  }
+  const marca = (x, y) => `<rect x="${x + m + .5}" y="${y + m + .5}" width="6" height="6" rx="1.6" fill="none" stroke="#C9512E" stroke-width="1"/><rect x="${x + m + 2}" y="${y + m + 2}" width="3" height="3" rx=".9" fill="#C9512E"/>`;
+  const ic = centro * .92, p = m + c0 + (centro - ic) / 2;
+  return `<svg viewBox="0 0 ${T} ${T}" role="img" aria-label="Código QR para entrar" xmlns="http://www.w3.org/2000/svg"><g fill="#1A1810">${d}</g>${marca(0, 0)}${marca(n - 7, 0)}${marca(0, n - 7)}<image href="icon-192.png" x="${p}" y="${p}" width="${ic}" height="${ic}"/></svg>`;
+}
+
+let qrVivo = 0;
+async function vistaQr() {
+  const mio = ++qrVivo;
+  entrada(LEMA, SUB, `<p class="etq">Entrar en este ordenador</p><h2>Escanea el código con <em>tu móvil</em></h2>
+    <div class="qr-zona"><div class="qr" id="qr"><div class="qr-svg" id="qr-svg"></div></div>
+      <ol class="qr-pasos"><li>Abre Posdata en tu móvil.</li><li>Toca el círculo de arriba a la derecha y luego <b>«Entrar en un ordenador»</b>.</li><li>Apunta la cámara a este código.</li></ol></div>
+    <div class="qr-barra"><i id="qr-barra"></i></div><p class="etq" id="qr-estado">Preparando el código…</p>
+    <div class="pie-form fila entre"><button type="button" class="enlace" id="qr-correo">Entrar con correo y contraseña</button><a class="enlace" href="#/codigo">Tengo una tarjeta con código</a></div>`);
+  document.getElementById('qr-correo').onclick = () => { qrVivo++; vistaEntrada('entrar'); };
+  const vivo = () => mio === qrVivo && document.getElementById('qr-svg');
+  while (vivo()) {
+    const secreto = aleatorio(32); let codigo;
+    try { codigo = await rpc('qr_crear', { p_secreto_hash: await sha256hex(secreto), p_dispositivo: etiquetaDispositivo() }); }
+    catch (e) { if (vivo()) document.getElementById('qr-estado').textContent = 'El acceso por código QR aún no está activado. Entra con correo y contraseña.'; return; }
+    if (!vivo()) return;
+    document.getElementById('qr-svg').innerHTML = qrSvg(`${location.origin}${location.pathname}#/qr/${codigo}`);
+    const t0 = Date.now(), TOTAL = 110000, barra = document.getElementById('qr-barra');
+    barra.style.transition = 'none'; barra.style.transform = 'scaleX(1)'; void barra.offsetWidth; barra.style.transition = `transform ${TOTAL}ms linear`; barra.style.transform = 'scaleX(0)';
+    let aprobado = null;
+    while (vivo() && Date.now() - t0 < TOTAL && !aprobado) {
+      const resto = Math.max(0, Math.ceil((TOTAL - (Date.now() - t0)) / 1000));
+      document.getElementById('qr-estado').innerHTML = `El código se renueva en <b>${Math.floor(resto / 60)}:${String(resto % 60).padStart(2, '0')}</b> · ${codigo}`;
+      try { const r = await rpc('qr_estado', { p_codigo: codigo, p_secreto: secreto }); if (r.estado === 'aprobada') aprobado = r.token_hash; if (r.estado === 'caducada') break; } catch { /* se reintenta */ }
+      if (!aprobado) await new Promise((ok) => setTimeout(ok, 2000));
+    }
+    if (aprobado && vivo()) {
+      document.getElementById('qr-estado').textContent = 'Aprobado desde el móvil. Entrando…';
+      let { error } = await sb.auth.verifyOtp({ token_hash: aprobado, type: 'email' });
+      if (error) ({ error } = await sb.auth.verifyOtp({ token_hash: aprobado, type: 'magiclink' }));
+      if (error) { avisa('No se ha podido entrar. Inténtalo de nuevo o usa tu correo.', true); document.getElementById('qr-estado').textContent = 'No se ha podido entrar.'; return; }
+      return;
+    }
+  }
+}
+
+// En el móvil: confirmar que se deja entrar a un ordenador.
+async function vistaAprobarQr(codigo) {
+  if (user.is_anonymous) { dentro(`<div class="centro vista"><p class="etq">Código QR</p><h1>Solo con <em>cuenta</em></h1><p class="muted">Dejar entrar a un ordenador es para cuentas con correo. Con la tarjeta no hace falta: se escribe el código en el ordenador.</p><a class="btn" href="#/">Volver</a></div>`); return; }
+  dentro(`<div class="centro vista"><p class="etq">Código QR</p><h1>Un <em>momento</em></h1></div>`);
+  let info;
+  try { info = await rpc('qr_info', { p_codigo: codigo }); }
+  catch (e) { dentro(`<div class="centro vista"><p class="etq">Código QR</p><h1>Este código ya <em>no vale</em></h1><p class="muted">Habrá caducado (duran dos minutos) o ya se usó. Mira el ordenador: se renueva solo.</p><a class="btn" href="#/perfil">Volver a mi perfil</a></div>`); return; }
+  dentro(`<div class="centro vista"><p class="etq">Entrar en el ordenador</p><h1>¿Dejas entrar a <em>este ordenador</em>?</h1>
+    <div class="papel" style="width:100%;max-width:420px;text-align:left"><p class="etq">Pide entrar</p><h3 style="margin:4px 0 8px">${esc(info.dispositivo || 'Un ordenador')}</h3><p class="muted">Con tu cuenta, ${esc(user.email)}.</p></div>
+    <p class="muted"><b>Solo aprueba si lo estás pidiendo tú ahora mismo</b>, mirando ese ordenador. Si no, pulsa «No».</p>
+    <div class="fila" style="justify-content:center"><button class="btn" id="q-si">Sí, es mi ordenador</button><button class="btn sec" id="q-no">No</button></div></div>`);
+  document.getElementById('q-no').onclick = () => (location.hash = '#/perfil');
+  document.getElementById('q-si').onclick = async (ev) => {
+    const b = ev.currentTarget; b.disabled = true;
+    try {
+      const { error } = await sb.functions.invoke('qr-aprobar', { body: { codigo } });
+      if (error) { let c = ''; try { c = (await error.context.json()).error; } catch {} const pasos = { qr_no_valido: 'Ese código ya no vale. Mira el ordenador: se renueva solo.', sin_cuenta: 'Para esto necesitas una cuenta con correo.' }; throw new Error(pasos[c] || (error.name === 'FunctionsFetchError' || /404|not found/i.test(error.message) ? 'El acceso por código QR aún no está activado en el servidor.' : 'No se ha podido aprobar. Inténtalo otra vez.')); }
+      dentro(`<div class="centro vista"><p class="etq">Listo</p><h1>Ya puedes <em>mirar el ordenador</em></h1><p class="muted">Entrará en unos segundos. Puedes cerrar esto.</p><a class="btn" href="#/">Ir a mis buzones</a></div>`);
+    } catch (e) { b.disabled = false; avisa(e.message, true); }
+  };
+}
+
+// Escáner de cámara (móvil): lee el QR del ordenador.
+async function abreEscaner() {
+  const o = document.createElement('div'); o.className = 'escaner';
+  o.innerHTML = `<div class="esc-cuerpo"><p class="etq" style="color:#fff">Apunta al código del ordenador</p><div class="esc-video"><video playsinline muted></video><i class="esc-marco"></i></div><p class="esc-msg" id="esc-msg"></p><button class="btn sec" id="esc-cerrar" style="color:#fff;border-color:#fff">Cancelar</button></div>`;
+  document.body.append(o);
+  const video = o.querySelector('video'), msg = o.querySelector('#esc-msg'); let flujo, vivo = true;
+  const cierra = () => { vivo = false; flujo?.getTracks().forEach((t) => t.stop()); o.remove(); };
+  o.querySelector('#esc-cerrar').onclick = cierra;
+  try {
+    flujo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } }); video.srcObject = flujo; await video.play();
+    const { jsQR } = await import('./vendor/qrleer.mjs'); const lienzo = document.createElement('canvas'), x = lienzo.getContext('2d', { willReadFrequently: true });
+    const mira = () => {
+      if (!vivo) return;
+      if (video.videoWidth) { lienzo.width = video.videoWidth; lienzo.height = video.videoHeight; x.drawImage(video, 0, 0); const r = jsQR(x.getImageData(0, 0, lienzo.width, lienzo.height).data, lienzo.width, lienzo.height);
+        const m = r && (r.data.match(/#\/qr\/([A-Za-z0-9]{10})/) || r.data.match(/^([A-Za-z0-9]{10})$/));
+        if (m) { cierra(); location.hash = '#/qr/' + m[1].toUpperCase(); return; } }
+      requestAnimationFrame(mira);
+    };
+    mira();
+  } catch (e) { msg.textContent = e?.name === 'NotAllowedError' ? 'Permite la cámara en el navegador para escanear. También puedes escribir el código a mano.' : 'No se ha podido abrir la cámara. Puedes escribir el código a mano.'; }
+}
+
 // ---------- perfil: cuenta, plan, tu letra, buzones y seguridad ----------
 const MB = 1024 * 1024;
 const AVISOS = [
@@ -637,6 +749,10 @@ async function vistaPerfil() {
       <div class="av-cab"><span></span><span class="etq">Móvil</span><span class="etq">Correo</span></div>
       ${AVISOS.map(([id, t, d, m, c, fijo]) => { const a = (p.avisos || {})[id] || {}; return `<div class="av-fila"><div><b>${t}</b><span class="etq">${d}${fijo ? ' · no se puede quitar' : ''}</span></div>${[['movil', m, 'en el móvil'], ['correo', c, 'por correo']].map(([k, def, txt]) => `<label class="tick"><input type="checkbox" data-av="${id}:${k}" ${(a[k] ?? !!def) || fijo ? 'checked' : ''} ${fijo ? 'disabled' : ''} aria-label="${t} ${txt}"></label>`).join('')}</div>`; }).join('')}
       <p class="muted nota-av">Por ahora solo guardamos tus preferencias: los avisos empezarán a enviarse más adelante. Los que no se pueden quitar es porque, si no te enteras, una carta se queda esperando.</p></div>`}
+    ${anon ? '' : `<div class="papel" id="qr-perfil"><div><p class="etq">Ordenador</p><h3 style="margin-top:4px">Entrar en un ordenador</h3></div>
+      <p class="muted">Abre Posdata en el ordenador, elige «Entrar con el código QR del móvil» y escanea aquí lo que veas. Entras sin escribir la contraseña.</p>
+      <div class="fila"><button class="btn peq" id="qr-escanear">Escanear un código</button></div>
+      <form class="fila" id="qr-manual"><input name="c" maxlength="10" placeholder="O escribe el código de 10 letras" autocomplete="off" autocapitalize="characters" style="flex:1;min-width:200px;font-family:var(--mono);font-style:normal;letter-spacing:.1em"><button class="btn peq sec">Usar</button></form></div>`}
     <div class="papel"><p class="etq">Tus buzones</p>${filas.length ? filas.map((f) => `<div class="persona"><span class="avatar">${inicial(f.buzones.nombre)}</span><div class="txt"><b>El buzón de ${esc(f.buzones.nombre)}</b><br><span class="muted">${ROL[f.rol] || f.rol}</span></div>${f.rol !== 'confianza' ? `<a class="enlace" href="#/b/${f.buzones.id}/memoria">Descargar memoria</a>` : ''}<a class="enlace" href="#/b/${f.buzones.id}">Abrir</a></div>`).join('') : '<p class="muted" style="margin-top:8px">Todavía no tienes ningún buzón.</p>'}</div>
     ${anon ? '' : `<form class="papel" id="f-clave"><div><p class="etq">Seguridad</p><h3 style="margin-top:4px">Cambiar la contraseña</h3></div><label><span>Nueva contraseña · mínimo 8</span><input type="password" name="c" minlength="8" required autocomplete="new-password"></label><div><button class="btn peq">Cambiar</button></div></form>
     <div class="papel proximamente"><p class="etq">Próximamente</p><ul><li>Copia automática en Google Drive</li><li>La memoria por correo</li><li>Libro impreso</li><li>Cintas de canciones</li></ul></div>`}
@@ -645,6 +761,8 @@ async function vistaPerfil() {
   if (anon) return;
   document.getElementById('f-nombre').onsubmit = async (ev) => { ev.preventDefault(); const { error } = await sb.from('profiles').update({ nombre: ev.target.n.value.trim().slice(0, 60) }).eq('id', user.id); if (error) return avisa(msgError(error), true); nombrePerfil = ev.target.n.value.trim().slice(0, 60); pintaTop(); avisa('Guardado.'); vistaPerfil(); };
   document.getElementById('f-clave').onsubmit = async (ev) => { ev.preventDefault(); const { error } = await sb.auth.updateUser({ password: ev.target.c.value }); if (error) return avisa(msgError(error), true); ev.target.reset(); avisa('Contraseña cambiada.'); };
+  document.getElementById('qr-escanear').onclick = abreEscaner;
+  document.getElementById('qr-manual').onsubmit = (ev) => { ev.preventDefault(); const c = ev.target.c.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase(); if (c.length !== 10) return avisa('El código tiene 10 letras o números.', true); location.hash = '#/qr/' + c; };
   // máquina de escribir y avisos
   document.getElementById('sw-maquina').onchange = (e) => { fijaMaquina(e.target.checked); };
   document.getElementById('sw-sonido').onchange = (e) => { fijaSonido(e.target.checked); if (e.target.checked) suena('retorno'); };

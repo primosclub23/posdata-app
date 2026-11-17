@@ -407,12 +407,14 @@ async function pintaCartas(panel, buzon, rol, b, temas, yo) {
   if (rol === 'escribe') q = q.eq('autor_id', user.id);
   const cartas = await leer(q);
   await cargaLetras(cartas.map((c) => c.autor_id));
+  const vistaCompacta = () => localStorage.getItem('posdata.vistaCartas') !== 'detallada';
   if (!cartas.length) { panel.innerHTML = `<div class="papel vacio"><span class="mini-sobre"><i></i></span><h3>${rol === 'receptor' ? 'Aún no hay cartas para ti' : 'Todavía no hay cartas'}</h3><p class="muted">${rol === 'receptor' ? 'Cuando se sellen, aparecerán aquí.' : 'La primera siempre es la más difícil. Empieza por una sola línea.'}</p></div>`; return; }
   const nTema = Object.fromEntries(temas.map((t) => [t.id, t.nombre]));
   const usados = temas.filter((t) => cartas.some((c) => c.tema_id === t.id));
   let q_ = '', tema_ = null;
   panel.innerHTML = `<div class="filtros"><label class="busca"><span class="sr">Buscar</span><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input id="buscar" type="search" placeholder="Buscar en las cartas…" autocomplete="off"></label>
     ${[...letras.values()].some(Boolean) ? `<div class="chips"><button class="chip ${usaLetra() ? 'on' : ''}" id="t-letra" aria-pressed="${usaLetra()}">Con la letra de quien escribe</button></div>` : ''}
+    <div class="chips" id="f-vista"><button class="chip ${vistaCompacta() ? 'on' : ''}" data-vista="compacta">Compacta</button><button class="chip ${vistaCompacta() ? '' : 'on'}" data-vista="detallada">Detallada</button></div>
     ${usados.length ? `<div class="chips" id="f-temas"><button class="chip on" data-ft="">Todas</button>${usados.map((t) => `<button class="chip" data-ft="${t.id}">${esc(t.nombre)}</button>`).join('')}</div>` : ''}</div><div id="lista-c" class="lista"></div>`;
   const lista = panel.querySelector('#lista-c');
   const accionesCarta = (c, rol) => {
@@ -423,20 +425,30 @@ async function pintaCartas(panel, buzon, rol, b, temas, yo) {
     if (rol === 'dueno' && c.estado === 'sellada') return `<div class="acciones" data-zona-pd="${c.id}"><button class="btn peq sec" data-pd="${c.id}">Añadir una P. D.</button><span class="cand">Ya se puede leer, así que queda fija. Una P. D. se añade debajo, con su fecha.</span></div>`;
     return '';
   };
+  const expandidas = new Set(); let mesesAbiertos = null;
+  const nombreMes = (k) => { const t = new Date(k + '-15T12:00:00').toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }); return t.charAt(0).toUpperCase() + t.slice(1); };
+  const fechaMini = (dia) => { const d = new Date(dia + 'T12:00:00'); return `<span class="fecha-mini"><b>${d.getDate()}</b><span>${d.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '')}</span></span>`; };
   const tarjeta = (c) => {
     const partes = (c.partes || []).sort((x, y) => x.orden - y.orden);
-    const cerrada = !partes.length, [etq, cls] = SELLO[c.estado];
+    const cerrada = !partes.length, [etqLarga, cls] = SELLO[c.estado], compacta = vistaCompacta(), abierta = expandidas.has(c.id);
+    // en la vista compacta solo se muestra el estado cuando es una excepción (las selladas son lo normal)
+    const etq = compacta ? ({ abierta: 'Hoy', pendiente: 'Pendiente', rechazada: 'Rechazada' }[c.estado] || '') : etqLarga;
+    const sello = etq ? `<span class="sello ${cls}">${etq}</span>` : '';
     const cand = c.candado === 'fecha' ? `Se abre el ${fechaLarga(c.abre_el)}` : c.candado === 'momento' ? `Para cuando… ${esc(c.momento)}` : '';
     const titulo = esc(c.titulo || (cerrada ? 'Una carta cerrada' : 'Sin título'));
     const nf = (c.adjuntos || []).filter((a) => a.tipo === 'foto').length, hayVoz = (c.adjuntos || []).some((a) => a.tipo === 'audio');
     const marcas = `${c.tema_id && nTema[c.tema_id] ? `<span class="tema-sello">${esc(nTema[c.tema_id])}</span>` : ''}${nf ? `<span class="marca-adj" title="${nf} foto${nf > 1 ? 's' : ''}">${ICONO.foto}${nf}</span>` : ''}${hayVoz ? `<span class="marca-adj" title="Nota de voz">${ICONO.voz}</span>` : ''}`;
-    return `<article class="papel carta ${cerrada ? 'cerrada' : ''}" data-c="${c.id}">
-      ${cerrada ? `<div class="carta-cab">${miniSobre}<div class="txt"><span class="etq">${fechaLarga(c.dia)}</span><h3>${titulo}</h3>${cand ? `<p class="cand">🔒 ${cand}</p>` : '<p class="cand">🔒 Cerrada</p>'}<div class="marcas">${marcas}</div></div><span class="sello ${cls}">${etq}</span></div>
+    const icono = compacta ? fechaMini(c.dia) : miniSobre, fecha = compacta ? '' : `<span class="etq">${fechaLarga(c.dia)}</span>`;
+    const cabeza = (cerr) => `${icono}<${cerr ? 'div' : 'span'} class="txt">${fecha}<h3>${titulo}</h3>${cerr ? `<p class="cand">🔒 ${cand || 'Cerrada'}</p>` : (cand ? `<p class="cand">${cand}</p>` : '')}<span class="marcas">${marcas}</span></${cerr ? 'div' : 'span'}>${sello}`;
+    return `<article class="papel carta ${compacta ? 'compacta' : ''} ${cerrada ? 'cerrada' : ''} ${abierta && !cerrada ? 'abierta' : ''}" data-c="${c.id}">
+      ${cerrada ? `<div class="carta-cab">${cabeza(true)}</div>
         ${c.candado === 'momento' && rol === 'receptor' ? `<div class="acciones"><button class="btn peq" data-abrir="${c.id}">Romper el sello</button></div>` : ''}`
-      : `<button class="carta-cab" data-abre="${c.id}" aria-expanded="false">${miniSobre}<span class="txt"><span class="etq">${fechaLarga(c.dia)}</span><h3>${titulo}</h3>${cand ? `<p class="cand">${cand}</p>` : ''}<span class="marcas">${marcas}</span></span><span class="sello ${cls}">${etq}</span><span class="flecha">›</span></button>
-        <div class="lee"><div><div class="lectura"><div class="adj" data-adj="${c.id}"></div><div class="texto" style="${estiloLetra(c.autor_id)}">${partes.map((p) => `<div class="parte ${p.posdata ? 'pd' : ''}">${p.posdata ? `<span class="mano pd-et">P. D. · ${fechaCorta(p.creada_en)}</span>` : ''}${esc(p.texto)}</div>`).join('')}${c.firma ? `<p class="mano firma" style="${estiloLetra(c.autor_id)}">${esc(c.firma)}</p>` : ''}</div><div class="adj-fotos" data-fotos="${c.id}"></div></div></div>
+      : `<button class="carta-cab" data-abre="${c.id}" aria-expanded="${abierta}">${cabeza(false)}<span class="flecha">›</span></button>
+        <div class="lee"><div>
+          <div class="lectura"><div class="adj" data-adj="${c.id}"></div><div class="texto" style="${estiloLetra(c.autor_id)}">${partes.map((p) => `<div class="parte ${p.posdata ? 'pd' : ''}">${p.posdata ? `<span class="mano pd-et">P. D. · ${fechaCorta(p.creada_en)}</span>` : ''}${esc(p.texto)}</div>`).join('')}${c.firma ? `<p class="mano firma" style="${estiloLetra(c.autor_id)}">${esc(c.firma)}</p>` : ''}</div><div class="adj-fotos" data-fotos="${c.id}"></div></div>
           ${accionesCarta(c, rol)}
-          ${rol === 'dueno' ? `<label class="etiqueta"><span>Tema</span><select data-tema="${c.id}"><option value="">Sin tema</option>${temas.map((t) => `<option value="${t.id}" ${t.id === c.tema_id ? 'selected' : ''}>${esc(t.nombre)}</option>`).join('')}</select></label>` : ''}</div></div>`}
+          ${rol === 'dueno' ? `<label class="etiqueta"><span>Tema</span><select data-tema="${c.id}"><option value="">Sin tema</option>${temas.map((t) => `<option value="${t.id}" ${t.id === c.tema_id ? 'selected' : ''}>${esc(t.nombre)}</option>`).join('')}</select></label>` : ''}
+        </div></div>`}
       ${rol === 'dueno' && c.estado === 'pendiente' ? `<div class="acciones"><span class="cand" style="align-self:center">De ${esc(c.firma || 'alguien')}:</span><button class="btn peq" data-ok="${c.id}">Aprobar</button><button class="btn peq sec" data-no="${c.id}">Rechazar</button></div>` : ''}
     </article>`;
   };
@@ -448,9 +460,16 @@ async function pintaCartas(panel, buzon, rol, b, temas, yo) {
   };
   const rec = () => vistaBuzon(buzon);
   const pinta = () => {
-    const vis = cartas.filter(coincide);
-    lista.innerHTML = vis.length ? vis.map(tarjeta).join('') : `<div class="papel vacio"><h3>No hay cartas así</h3><p class="muted">Prueba con otra palabra o con otro tema.</p></div>`;
-    lista.querySelectorAll('[data-abre]').forEach((h) => (h.onclick = () => { const a = h.closest('.carta'); const on = a.classList.toggle('abierta'); h.setAttribute('aria-expanded', on); if (on) cargaAdjuntos(a); }));
+    const vis = cartas.filter(coincide), filtrando = !!(q_ || tema_);
+    const meses = [], porMes = new Map();
+    vis.forEach((c) => { const k = c.dia.slice(0, 7); if (!porMes.has(k)) { porMes.set(k, []); meses.push(k); } porMes.get(k).push(c); });
+    if (!mesesAbiertos) mesesAbiertos = new Set(meses.slice(0, 1));   // al empezar, solo el mes más reciente
+    lista.innerHTML = vis.length ? meses.map((k) => { const l = porMes.get(k), abierto = filtrando || mesesAbiertos.has(k);
+      return `<section class="mes ${abierto ? 'abierto' : ''}"><button type="button" class="mes-cab" data-mes="${k}" aria-expanded="${abierto}"><span>${nombreMes(k)}</span><b>${l.length}</b><span class="flecha">›</span></button>${abierto ? `<div class="mes-lista">${l.map(tarjeta).join('')}</div>` : ''}</section>`; }).join('')
+      : `<div class="papel vacio"><h3>No hay cartas así</h3><p class="muted">Prueba con otra palabra o con otro tema.</p></div>`;
+    lista.querySelectorAll('[data-mes]').forEach((h) => (h.onclick = () => { const k = h.dataset.mes; if (mesesAbiertos.has(k)) mesesAbiertos.delete(k); else mesesAbiertos.add(k); pinta(); }));
+    lista.querySelectorAll('[data-abre]').forEach((h) => (h.onclick = () => { const a = h.closest('.carta'); const on = a.classList.toggle('abierta'); h.setAttribute('aria-expanded', on); if (on) { expandidas.add(a.dataset.c); cargaAdjuntos(a); } else expandidas.delete(a.dataset.c); }));
+    lista.querySelectorAll('.carta.abierta').forEach(cargaAdjuntos);
     const quiere = (sel, fn) => lista.querySelectorAll(sel).forEach((x) => (x.onclick = async () => { try { await fn(x); rec(); } catch (e) { avisa(msgError(e), true); } }));
     lista.querySelectorAll('[data-editar]').forEach((x) => (x.onclick = async () => {
       x.disabled = true;
@@ -474,6 +493,7 @@ async function pintaCartas(panel, buzon, rol, b, temas, yo) {
     lista.querySelectorAll('[data-tema]').forEach((s) => (s.onchange = async () => { try { await rpc('etiquetar_carta', { p_carta: s.dataset.tema, p_tema: s.value || null }); const c = cartas.find((x) => x.id === s.dataset.tema); c.tema_id = s.value || null; avisa('Tema guardado.'); } catch (e) { avisa(msgError(e), true); } }));
   };
   pinta();
+  panel.querySelectorAll('[data-vista]').forEach((c) => (c.onclick = () => { localStorage.setItem('posdata.vistaCartas', c.dataset.vista); panel.querySelectorAll('[data-vista]').forEach((x) => x.classList.toggle('on', x === c)); pinta(); }));
   panel.querySelector('#t-letra')?.addEventListener('click', (e) => { localStorage.setItem('posdata.conletra', usaLetra() ? '0' : '1'); e.currentTarget.classList.toggle('on', usaLetra()); e.currentTarget.setAttribute('aria-pressed', usaLetra()); pinta(); });
   panel.querySelector('#buscar').oninput = (e) => { q_ = sinTildes(e.target.value).trim(); pinta(); };
   panel.querySelectorAll('[data-ft]').forEach((c) => (c.onclick = () => { tema_ = c.dataset.ft || null; panel.querySelectorAll('[data-ft]').forEach((x) => x.classList.toggle('on', x === c)); pinta(); }));

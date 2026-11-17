@@ -570,3 +570,32 @@ body.sin-maquina { --maquina: 'Playfair Display', Georgia, serif; --maquina-pt: 
 .esc-video video { width: 100%; height: 100%; object-fit: cover; }
 .esc-marco { position: absolute; inset: 14%; border: 2px solid rgba(255,255,255,.85); border-radius: 18px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.35); pointer-events: none; }
 .esc-msg { color: #fff; font-size: 14px; min-height: 20px; }
+
+/* ---------- lista de cartas: compacta y por meses ---------- */
+#lista-c { gap: 18px; }
+.mes { display: grid; gap: 8px; }
+.mes-cab { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 4px; text-align: left; border-bottom: .5px solid var(--border); position: sticky; top: 68px; z-index: 3; background: var(--bg); }
+.mes-cab > span:first-child { font-family: var(--serif); font-size: 19px; font-weight: 700; flex: 1; }
+.mes-cab b { font-family: var(--mono); font-weight: 400; font-size: 10px; letter-spacing: .08em; color: var(--hint); padding: 2px 9px; border-radius: 100px; border: .5px solid var(--border); }
+.mes-cab .flecha { color: var(--hint); transition: transform .4s var(--ease); }
+.mes.abierto .mes-cab .flecha { transform: rotate(90deg); }
+.mes-lista { display: grid; gap: 10px; animation: sube .5s var(--ease) both; }
+.fecha-mini { flex: none; width: 46px; display: grid; justify-items: center; line-height: 1; gap: 3px; }
+.fecha-mini b { font-family: var(--serif); font-size: 26px; font-weight: 700; color: var(--accent-dark); }
+.fecha-mini span { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--hint); }
+.carta.compacta { border-radius: 12px; box-shadow: none; }
+.carta.compacta:hover, .carta.compacta.abierta { box-shadow: var(--shadow); }
+.carta.compacta .carta-cab { padding: 11px 14px; gap: 12px; align-items: center; }
+.carta.compacta .carta-cab h3 { font-size: 17px; margin: 0; line-height: 1.25; }
+.carta.compacta .carta-cab .txt { display: grid; gap: 2px; }
+.carta.compacta .marcas { margin-top: 0; }
+.carta.compacta .marcas:empty { display: none; }
+.carta.compacta .cand { font-size: 12px; margin: 0; }
+.carta.compacta .sello { font-size: 8px; padding: 2px 8px; }
+.carta.compacta h3 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.carta.compacta.abierta h3 { white-space: normal; }
+.carta.compacta .acciones { padding: 0 16px 14px; }
+.carta.compacta .lectura { padding: 2px 16px 6px; }
+.carta.compacta .etiqueta { padding: 4px 16px 16px; }
+#f-vista { justify-content: flex-start; }
+@media (max-width: 560px) { .mes-cab { top: 66px; } .carta.compacta .carta-cab { padding: 10px 12px; gap: 10px; } .fecha-mini { width: 40px; } }

@@ -599,3 +599,15 @@ body.sin-maquina { --maquina: 'Playfair Display', Georgia, serif; --maquina-pt: 
 .carta.compacta .etiqueta { padding: 4px 16px 16px; }
 #f-vista { justify-content: flex-start; }
 @media (max-width: 560px) { .mes-cab { top: 66px; } .carta.compacta .carta-cab { padding: 10px 12px; gap: 10px; } .fecha-mini { width: 40px; } }
+
+/* ---------- borradores ---------- */
+.b-estado { margin-left: 8px; color: var(--accent-dark); letter-spacing: .06em; text-transform: none; font-size: 11px; }
+.b-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 18px; font-size: 14px; background: var(--surface); }
+.b-lista { display: grid; gap: 4px; padding: 16px 20px; }
+.b-fila { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: .5px solid var(--border); }
+.b-fila:first-of-type { border-top: none; }
+.b-fila .txt { flex: 1; min-width: 0; display: grid; line-height: 1.35; }
+.b-fila b { font-weight: 500; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.b-fila .muted { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#b-lista:empty { display: none; }
+#b-lista, .b-banner { margin-bottom: 18px; }

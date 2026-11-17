@@ -21,7 +21,7 @@ const ERRORES = {
   fecha_no_valida: 'La fecha de apertura tiene que ser posterior a hoy.', momento_vacio: 'Pon un nombre al momento («Cuando estés triste»).',
   llave_no_valida: 'Ese código no abre ningún buzón.', demasiados_intentos: 'Demasiados intentos. Espera unos minutos.',
   invitacion_no_valida: 'La invitación no es válida o ha caducado.', ya_eres_miembro: 'Ya tienes acceso a este buzón.',
-  no_pendiente: 'Esa carta ya no está pendiente.', cinta_sin_titulo: 'Ponle un nombre a la cinta.', cancion_sin_titulo: 'Escribe el título de la canción.', cara_llena: 'Esa cara ya tiene 6 canciones. Pasa alguna a la otra cara.', demasiadas_cintas: 'Ya tienes muchas cintas.', 'violates check constraint': 'Revisa los datos: el enlace tiene que empezar por https://', carta_no_editable: 'Esa carta ya no se puede editar: quien la recibe ya puede leerla.', usa_editar: 'Esa carta aún se puede editar directamente.', parte_no_valida: 'Ese texto ya no existe.', texto_largo: 'El texto es demasiado largo.', tema_repetido: 'Ya hay un tema con ese nombre.', tema_vacio: 'Escribe el nombre del tema.', demasiados_temas: 'Ya hay demasiados temas.', tema_no_valido: 'Ese tema ya no existe.',
+  no_pendiente: 'Esa carta ya no está pendiente.', borrador_no_valido: 'Ese borrador ya no existe.', demasiados_borradores: 'Ya tienes 30 borradores en este buzón: borra alguno.', cinta_sin_titulo: 'Ponle un nombre a la cinta.', cancion_sin_titulo: 'Escribe el título de la canción.', cara_llena: 'Esa cara ya tiene 6 canciones. Pasa alguna a la otra cara.', demasiadas_cintas: 'Ya tienes muchas cintas.', 'violates check constraint': 'Revisa los datos: el enlace tiene que empezar por https://', carta_no_editable: 'Esa carta ya no se puede editar: quien la recibe ya puede leerla.', usa_editar: 'Esa carta aún se puede editar directamente.', parte_no_valida: 'Ese texto ya no existe.', texto_largo: 'El texto es demasiado largo.', tema_repetido: 'Ya hay un tema con ese nombre.', tema_vacio: 'Escribe el nombre del tema.', demasiados_temas: 'Ya hay demasiados temas.', tema_no_valido: 'Ese tema ya no existe.',
   demasiados_adjuntos: 'Demasiadas fotos o audios en una carta.', adjunto_no_subido: 'No se ha podido subir un archivo. Inténtalo otra vez.', 'row-level security': 'No puedes subir archivos a este buzón.', 'maximum allowed size': 'Ese archivo pesa demasiado.', 'mime type': 'Ese tipo de archivo no está permitido.', correo_no_valido: 'Ese correo no parece válido.', no_autenticado: 'Entra primero.',
   'Invalid login credentials': 'Correo o contraseña incorrectos.', 'User already registered': 'Ya hay una cuenta con ese correo.',
   'Email not confirmed': 'Confirma tu correo antes de entrar (mira tu bandeja).',
@@ -274,12 +274,13 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas, edit = null) {
   const dueña = rol === 'dueno';
   const hoy = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   let fotos = [], voz = null, grabando = null, temaSel = edit ? edit.carta.tema_id : null, cand = edit ? edit.carta.candado : 'ninguno';
+  let borradorId = null, limpiaBorrador = async () => {};
   const exFotos = edit ? edit.adjuntos.filter((a) => a.tipo === 'foto').map((a) => ({ ...a })) : [];
   let exVoz = edit ? edit.adjuntos.find((a) => a.tipo === 'audio') || null : null;
   const quitar = [];
-  panel.innerHTML = `<div class="mesa"><div class="pols" id="pols" aria-label="Fotos de la carta"></div>
+  panel.innerHTML = `${edit ? '' : '<div id="b-lista"></div>'}<div class="mesa"><div class="pols" id="pols" aria-label="Fotos de la carta"></div>
     <form class="hoja" id="f">
-      <p class="etq fecha">${edit ? 'Editar esta carta · ' + esc(fechaLarga(edit.carta.dia)) : esc(hoy)}</p>
+      <p class="etq fecha">${edit ? 'Editar esta carta · ' + esc(fechaLarga(edit.carta.dia)) : esc(hoy)}${edit ? '' : '<span class="b-estado" id="b-estado" aria-live="polite"></span>'}</p>
       <p class="mano para">Para ${esc(b.nombre)},</p>
       <input class="titulo" name="titulo" maxlength="80" placeholder="Un título (opcional)" value="${edit ? esc(edit.carta.titulo) : ''}">
       ${edit ? edit.partes.map((p, i) => `<label class="parte-ed"><span>${edit.partes.length > 1 ? 'Parte ' + (i + 1) : 'Tu carta'}</span><textarea data-parte="${p.id}" required>${esc(p.texto)}</textarea></label>`).join('') : `<textarea name="texto" required placeholder="${dueña ? 'Lo que querrías que supiera…' : 'Escribe aquí tu carta…'}"></textarea>`}
@@ -295,7 +296,7 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas, edit = null) {
           <p class="ayuda" id="ay" style="margin-top:8px">Sin candado: es la carta de hoy. Puedes seguir añadiendo y se sella sola a medianoche.</p></div>
           <label id="l-fecha" hidden><span>Se abre el</span><input type="date" name="abre"></label>
           <label id="l-momento" hidden><span>Para cuando…</span><input name="momento" maxlength="60" placeholder="Cuando estés triste"></label>` : `<p class="ayuda">${yo.revisa ? 'Tu carta pasará por revisión antes de sellarse.' : 'Tu carta se sellará al enviarla.'}</p>`}
-        <div class="fila"><button class="btn" id="enviar">${edit ? 'Guardar los cambios' : dueña ? 'Guardar en el buzón' : 'Enviar la carta'}</button>${edit ? '<button type="button" class="enlace" id="cancelar">Cancelar</button>' : ''}</div></div></form></div>`;
+        <div class="fila"><button class="btn" id="enviar">${edit ? 'Guardar los cambios' : dueña ? 'Guardar en el buzón' : 'Enviar la carta'}</button>${edit ? '<button type="button" class="enlace" id="cancelar">Cancelar</button>' : '<button type="button" class="btn sec" id="b-guardar">Guardar borrador</button>'}</div></div></form></div>`;
   document.getElementById('cancelar')?.addEventListener('click', () => vistaBuzon(buzon));
   const f = document.getElementById('f');
   // la máquina de escribir: suena al teclear (y se puede apagar aquí mismo)
@@ -391,12 +392,77 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas, edit = null) {
       }
       await rpc('escribir', { p_buzon: buzon, p_texto: f.texto.value, p_titulo: f.titulo.value, p_candado: cand, p_abre_el: cand === 'fecha' ? f.abre.value || null : null, p_momento: cand === 'momento' ? f.momento.value : null, p_adjuntos: adjuntos, p_tema_id: temaSel });
       fotos.forEach((p) => URL.revokeObjectURL(p.url)); if (voz) URL.revokeObjectURL(voz.url);
+      if (!edit) await limpiaBorrador();
       avisa(dueña ? 'Guardado en el buzón.' : 'Enviada.'); pestana = 'cartas'; vistaBuzon(buzon);
     } catch (e) {
       if (subidos.length) sb.storage.from('adjuntos').remove(subidos).catch(() => {});
       avisa(msgError(e), true); bt.disabled = false; bt.textContent = txt;
     }
   };
+  // ---------- borradores: se guarda solo mientras escribes ----------
+  if (!edit) {
+  const clave = `posdata.borrador.${user.id}.${buzon}`;
+  let tLocal, tServ, ultimoGuardado = '';
+  const campos = () => ({ titulo: f.titulo.value, texto: f.texto.value, tema: temaSel, cand, abre: f.abre?.value || null, momento: f.momento?.value || '' });
+  const hayAlgo = () => !!(f.titulo.value.trim() || f.texto.value.trim());
+  const dice = (t) => { const e = document.getElementById('b-estado'); if (e) e.textContent = t ? '· ' + t : ''; };
+  const hace = (ts) => { const m = Math.round((Date.now() - new Date(ts).getTime()) / 60000); return m < 1 ? 'hace un momento' : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`; };
+  function guardaLocal() { if (hayAlgo()) localStorage.setItem(clave, JSON.stringify({ ...campos(), id: borradorId, ts: Date.now() })); else localStorage.removeItem(clave); }
+  async function guardaServidor(explicito = false) {
+    if (!hayAlgo()) return null;
+    const c = campos(), firma = JSON.stringify(c);
+    if (!explicito && firma === ultimoGuardado) return borradorId;
+    try {
+      borradorId = await rpc('guardar_borrador', { p_buzon: buzon, p_id: borradorId, p_titulo: c.titulo, p_texto: c.texto, p_tema_id: c.tema, p_candado: c.cand, p_abre_el: c.cand === 'fecha' ? c.abre : null, p_momento: c.cand === 'momento' ? c.momento : null });
+      ultimoGuardado = firma; guardaLocal(); dice('borrador guardado'); return borradorId;
+    } catch (e) { if (explicito) throw e; dice('guardado en este dispositivo'); return null; }
+  }
+  limpiaBorrador = async () => {
+    clearTimeout(tLocal); clearTimeout(tServ); localStorage.removeItem(clave);
+    if (borradorId) { try { await rpc('borrar_borrador', { p_id: borradorId }); } catch { /* ya no está */ } borradorId = null; }
+  };
+  function rellena(d) {
+    f.titulo.value = d.titulo || ''; f.texto.value = d.texto || ''; temaSel = d.tema ?? d.tema_id ?? null; pintaTemasChips();
+    cand = d.cand || d.candado || 'ninguno';
+    if (dueña) { panel.querySelectorAll('[data-c]').forEach((x) => x.classList.toggle('on', x.dataset.c === cand)); document.getElementById('l-fecha').hidden = cand !== 'fecha'; document.getElementById('l-momento').hidden = cand !== 'momento'; document.getElementById('ay').textContent = AY[cand]; f.abre.value = d.abre || d.abre_el || ''; f.momento.value = d.momento || ''; }
+    ultimoGuardado = JSON.stringify(campos());
+  }
+  const alEscribir = () => { dice('sin guardar'); clearTimeout(tLocal); tLocal = setTimeout(() => { guardaLocal(); dice(borradorId ? 'sin guardar' : 'guardado en este dispositivo'); }, 300); clearTimeout(tServ); tServ = setTimeout(() => guardaServidor(), 2500); };
+  ['input', 'change'].forEach((ev) => f.addEventListener(ev, alEscribir));
+  panel.addEventListener('click', (e) => { if (e.target.closest('[data-c], [data-t], .pol-x')) alEscribir(); });
+  const alSalir = () => { if (document.hidden) { guardaLocal(); if (hayAlgo()) guardaServidor(); } };
+  document.addEventListener('visibilitychange', alSalir); addEventListener('pagehide', guardaLocal);
+
+  // al abrir: retomar lo que había (este dispositivo) y listar los demás borradores
+  const lista = document.getElementById('b-lista');
+  const local = (() => { try { return JSON.parse(localStorage.getItem(clave) || 'null'); } catch { return null; } })();
+  const pintaLista = async () => {
+    let ds = []; try { ds = await leer(sb.from('borradores').select('id, titulo, texto, tema_id, candado, abre_el, momento, actualizado').eq('buzon_id', buzon).order('actualizado', { ascending: false })); } catch { /* sin borradores en el servidor */ }
+    ds = ds.filter((d) => d.id !== borradorId);
+    lista.innerHTML = ds.length ? `<div class="papel b-lista"><p class="etq">Borradores · ${ds.length}</p>${ds.map((d) => `<div class="b-fila" data-bid="${d.id}"><div class="txt"><b>${esc(d.titulo || d.texto.trim().slice(0, 48) || 'Sin título')}</b><span class="muted">${esc(d.titulo ? d.texto.trim().slice(0, 60) : '')} ${hace(d.actualizado)}</span></div><button type="button" class="btn peq sec" data-seguir="${d.id}">Seguir</button><button type="button" class="enlace" data-borra-b="${d.id}">Borrar</button></div>`).join('')}</div>` : '';
+    lista.querySelectorAll('[data-seguir]').forEach((x) => (x.onclick = async () => {
+      const d = ds.find((k) => k.id === x.dataset.seguir);
+      if (hayAlgo()) { try { await guardaServidor(true); } catch { /* queda en este dispositivo */ } }   // lo que había se guarda antes de cambiar
+      borradorId = d.id; rellena(d); guardaLocal(); dice('borrador retomado'); window.scrollTo({ top: f.getBoundingClientRect().top + scrollY - 90, behavior: 'smooth' }); f.texto.focus(); pintaLista();
+    }));
+    lista.querySelectorAll('[data-borra-b]').forEach((x) => (x.onclick = async () => { if (!confirm('¿Borrar este borrador?')) return; try { await rpc('borrar_borrador', { p_id: x.dataset.borraB }); pintaLista(); } catch (e) { avisa(msgError(e), true); } }));
+  };
+  if (local && (local.titulo?.trim() || local.texto?.trim())) {
+    borradorId = local.id || null; rellena(local);
+    lista.insertAdjacentHTML('beforebegin', `<div class="papel b-banner" id="b-banner"><span>Has retomado tu borrador (${hace(local.ts)}).</span><button type="button" class="enlace" id="b-nueva">Empezar una carta nueva</button></div>`);
+    document.getElementById('b-nueva').onclick = async () => { if (hayAlgo()) { try { await guardaServidor(true); } catch { /* sigue en este dispositivo */ } } borradorId = null; localStorage.removeItem(clave); rellena({}); document.getElementById('b-banner')?.remove(); dice(''); ultimoGuardado = ''; pintaLista(); };
+  }
+  pintaLista();
+  document.getElementById('b-guardar').onclick = async (ev) => {
+    const b = ev.currentTarget;
+    if (!hayAlgo()) return avisa('Escribe algo y lo guardo como borrador.', true);
+    b.disabled = true;
+    try { await guardaServidor(true); const extra = (fotos.length || voz) ? ' Las fotos y la voz no se guardan en el borrador.' : ''; avisa('Borrador guardado. Sigue cuando quieras desde Escribir.' + extra); pintaLista(); }
+    catch (e) { guardaLocal(); avisa('No se ha podido guardar en el servidor; queda en este dispositivo.', true); }
+    b.disabled = false;
+  };
+  }
+
 }
 
 // ---------- cartas: lista con buscador y temas ----------

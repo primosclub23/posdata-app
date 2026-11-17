@@ -263,12 +263,22 @@ async function cargaLetras(ids) {
 const num = (k, d) => { const v = parseFloat(localStorage.getItem(k)); return isFinite(v) ? v : d; };
 const luz = { brillo: () => num('posdata.luz.brillo', 70), calidez: () => num('posdata.luz.calidez', 55), haz: () => localStorage.getItem('posdata.luz.haz') || 'medio' };
 const HACES = [['amplio', 'Amplio'], ['medio', 'Medio'], ['estrecho', 'Estrecho'], ['foco', 'Foco'], ['difuso', 'Difuso']];
+// La carta solo se ve donde llega el haz: una sombra con un agujero con la forma del haz (y bordes suaves).
+const FORMA_HAZ = { medio: [14, 115], amplio: [30, 140], estrecho: [7, 65], foco: 'e62,85', difuso: 'e125,105' };
+function mascaraHaz(h) {
+  const f = FORMA_HAZ[h] || FORMA_HAZ.medio;
+  const capa = (k) => { const e = .72 + k * .05; return typeof f === 'string' ? `<ellipse cx="150" cy="0" rx="${(+f.slice(1).split(',')[0] * e).toFixed(1)}" ry="${(+f.slice(1).split(',')[1] * e).toFixed(1)}"/>` : (([ht, hb]) => { const t = ht * e, w = (ht + (hb - ht) * 1.2) * e; return `<polygon points="${150 - t},0 ${150 + t},0 ${150 + w},150 ${150 - w},150"/>`; })(f); };
+  const forma = `<g fill="url(#g)">${capa(0).replace('/>', ' fill-opacity="1"/>')}</g><g fill="url(#g)" fill-opacity=".13">${Array.from({ length: 13 }, (_, k) => capa(k + 2)).join('')}</g>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 150" preserveAspectRatio="none"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000"/><stop offset=".6" stop-color="#1a1a1a"/><stop offset="1" stop-color="#454545"/></linearGradient><mask id="m"><rect width="300" height="150" fill="#fff"/>${forma}</mask></defs><rect width="300" height="150" fill="#000" mask="url(#m)"/></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
 function aplicaLuz() {
   const b = luz.brillo() / 100, w = luz.calidez() / 100, mezcla = (a, z) => Math.round(a + (z - a) * w);
   const r = document.documentElement.style;
   r.setProperty('--luz-rgb', `255,${mezcla(246, 168)},${mezcla(230, 78)}`);          // de blanco neutro a ámbar cálido
   r.setProperty('--luz-a1', (.14 + .58 * b).toFixed(2)); r.setProperty('--luz-a2', (.07 + .3 * b).toFixed(2)); r.setProperty('--luz-a3', (.02 + .12 * b).toFixed(2));
   r.setProperty('--hoja-brillo', (.8 + .2 * b).toFixed(2)); r.setProperty('--hoja-sepia', (.02 + .16 * w).toFixed(2));
+  r.setProperty('--sombra-a', (.9 - .42 * b).toFixed(2)); r.setProperty('--mascara-haz', mascaraHaz(luz.haz()));
   document.querySelectorAll('[data-haz]').forEach((e) => e.setAttribute('data-haz', luz.haz()));
 }
 aplicaLuz();
@@ -313,6 +323,7 @@ function montaLampara() {
   const f = document.createElement('div'); f.id = 'lampara-frente'; f.setAttribute('data-haz', luz.haz());
   f.innerHTML = `<div class="lampara">${LAMPARA_SVG('')}</div><p class="lampara-pista">Tira del cordón (o pulsa Esc) para apagar la luz y volver</p>`;
   document.body.append(f);
+  const sh = document.createElement('div'); sh.id = 'sombra-haz'; sh.setAttribute('aria-hidden', 'true'); sh.innerHTML = '<div class="sombra-haz"></div>'; document.body.append(sh);
   const apaga = () => { fijaLampara(false); };
   f.querySelector('#cordon').addEventListener('click', apaga);
   f.querySelector('#cordon').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); apaga(); } });
@@ -965,7 +976,7 @@ async function vistaPerfil() {
       <p class="muted">Una lamparita retro para escribir con calma: cuelga delante de la hoja sin estorbar, baja la luz de la pantalla y esconde todo lo demás.${premium() ? '' : ' Es una función de Posdata completa.'}</p>
       <div><p class="lbl" style="margin-bottom:8px">Cuándo se enciende</p><div class="chips" id="l-modos">${[['no', 'Apagada'], ['si', 'Encendida'], ['auto', 'De noche (21:00 a 7:00)']].map(([k, n]) => `<button type="button" class="chip ${lamparaModo() === k ? 'on' : ''}" data-lmodo="${k}">${n}</button>`).join('')}</div><p class="ayuda" style="margin-top:6px">En la hoja de escribir, el botón de la lámpara también la enciende y apaga.</p></div>
       <div><p class="lbl" style="margin-bottom:8px">Tu lámpara</p><div class="muestras" id="l-lamparas">${LAMPARAS.map(([k, n]) => `<button type="button" class="muestra ${lamparaEstilo() === k ? 'on' : ''}" data-lamp="${k}" aria-pressed="${lamparaEstilo() === k}" aria-label="${n}"><span class="mini-lamp">${LAMPARA_SVG('m' + k, k)}</span><span>${n}</span>${k !== 'esmeralda' && !premium() ? '<u class="candado-p">🔒</u>' : ''}</button>`).join('')}</div></div>
-      <div class="noche-prueba" id="noche-prueba" data-haz="${luz.haz()}" aria-hidden="true"><div class="cono"></div><div class="lampara">${LAMPARA_SVG('p')}</div><div class="hoja-prueba"><p>Una pequeña luz.<br>Una página tranquila.</p></div></div>
+      <div class="noche-prueba" id="noche-prueba" data-haz="${luz.haz()}" aria-hidden="true"><div class="cono"></div><div class="lampara">${LAMPARA_SVG('p')}</div><div class="hoja-prueba"><p>Una pequeña luz.<br>Una página tranquila.</p></div><div class="sombra-haz"></div></div>
       <p class="etq" style="text-align:center">Vista previa</p>
       <div class="ajuste-luz"><div class="fila entre"><b>Brillo</b><span class="etq" id="v-brillo"></span></div><input type="range" id="luz-brillo" min="10" max="100" step="5" value="${luz.brillo()}" aria-label="Brillo de la luz"><div class="fila entre ayuda"><span>Tenue</span><span>Brillante</span></div></div>
       <div class="ajuste-luz"><div class="fila entre"><b>Calidez de la luz</b><span class="etq" id="v-calidez"></span></div><input type="range" id="luz-calidez" min="0" max="100" step="5" value="${luz.calidez()}" aria-label="Calidez de la luz"><div class="fila entre ayuda"><span>Neutra</span><span>Ámbar cálido</span></div></div>

@@ -752,3 +752,14 @@ body.lampara .hoja { filter: brightness(var(--hoja-brillo, .94)) sepia(var(--hoj
 /* varias lámparas */
 .mini-lamp { display: block; width: 40px; height: 56px; overflow: hidden; } .mini-lamp svg { width: 100%; height: auto; display: block; }
 #l-lamparas .muestra { background: #14110D; min-width: 78px; color: #CFC4AE; } #l-lamparas .muestra.on { color: #F3E4C4; }
+
+/* la hoja se ilumina solo donde llega el haz */
+:root { --sombra-a: .6; }
+.sombra-haz { position: absolute; top: 0; left: var(--lx, 50%); width: 300%; height: 150%; transform: translateX(-50%); background: rgba(8, 6, 4, var(--sombra-a)); -webkit-mask-image: var(--mascara-haz); mask-image: var(--mascara-haz); -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; pointer-events: none; }
+#sombra-haz { filter: blur(9px); position: fixed; inset: -24px; z-index: 20; overflow: hidden; pointer-events: none; opacity: 0; visibility: hidden; transition: opacity .9s ease, visibility .9s; --lx: 80%; }
+@media (min-width: 1000px) { #sombra-haz { --lx: calc(50% + 430px); } }
+@media (max-width: 999px) { #sombra-haz { --lx: 28%; } }
+body.lampara #sombra-haz { opacity: 1; visibility: visible; }
+.noche-prueba .sombra-haz { left: 50%; z-index: 2; } .noche-prueba .lampara { z-index: 3; }
+body.lampara .hoja { filter: none; }
+@media print { #sombra-haz { display: none !important; } }

@@ -15,7 +15,11 @@ export const TIPOS = {
   oficina: { nombre: 'Oficina', modos: [[1150, 1, .08], [2450, .85, .06], [4100, .65, .045], [6500, .45, .03]], brillo: 1.45, cuerpo: .55, golpe: .7, timbre: false },
   suave: { nombre: 'Suave', modos: [[640, 1, .045], [1350, .5, .035], [2500, .25, .025]], brillo: .55, cuerpo: 1.3, golpe: 1.15, timbre: true },
 };
-export const tipoSonido = () => (TIPOS[localStorage.getItem(LS.tipo)] ? localStorage.getItem(LS.tipo) : 'clasica');
+// Si hay grabaciones reales en sonidos/ (con su sonidos.json), se ofrecen como «Máquina real» y son el sonido por defecto.
+export const MUESTRAS = { listas: false, buffers: null };
+export const hayMuestras = fetch('sonidos/sonidos.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).then((m) => { if (m && Object.values(m).some((l) => l && l.length)) { MUESTRAS.listas = m; TIPOS_REAL(); } return !!MUESTRAS.listas; }).catch(() => false);
+function TIPOS_REAL() { if (!TIPOS.real) { const resto = { ...TIPOS }; for (const k of Object.keys(TIPOS)) delete TIPOS[k]; TIPOS.real = { nombre: 'Máquina real', real: true }; Object.assign(TIPOS, resto); } }
+export const tipoSonido = () => { const t = localStorage.getItem(LS.tipo); if (TIPOS[t]) return t; return TIPOS.real ? 'real' : 'clasica'; };
 export function fijaTipo(t) { if (TIPOS[t]) localStorage.setItem(LS.tipo, t); }
 export const volumen = () => { const v = parseFloat(localStorage.getItem(LS.volumen)); return isFinite(v) ? Math.min(1, Math.max(.1, v)) : .7; };
 export function fijaVolumen(v) { localStorage.setItem(LS.volumen, String(Math.min(1, Math.max(.1, v)))); if (sal) sal.gain.value = 1.25 * volumen(); }
@@ -88,9 +92,37 @@ function audio() {
   if (ctx.state === 'suspended') ctx.resume();
   return ctx;
 }
+// --- grabaciones reales ---
+let cargandoMuestras = null, ultimo = {};
+async function cargaMuestras(c) {
+  if (MUESTRAS.buffers || !MUESTRAS.listas) return MUESTRAS.buffers;
+  if (!cargandoMuestras) cargandoMuestras = (async () => {
+    const b = {};
+    for (const [tipo, lista] of Object.entries(MUESTRAS.listas)) {
+      b[tipo] = [];
+      for (const f of lista) { try { b[tipo].push(await c.decodeAudioData(await (await fetch('sonidos/' + f)).arrayBuffer())); } catch { /* esa muestra no vale */ } }
+    }
+    MUESTRAS.buffers = b; return b;
+  })();
+  return cargandoMuestras;
+}
+const ALTERNATIVA = { aviso: 'timbre', borra: 'tecla' };
+function tocaMuestra(nombre, vol = 1) {
+  const b = MUESTRAS.buffers; if (!b) return false;
+  let lista = b[ALTERNATIVA[nombre] && !(b[nombre] && b[nombre].length) ? ALTERNATIVA[nombre] : (nombre === 'aviso' ? 'timbre' : nombre)];
+  if (!lista || !lista.length) lista = nombre === 'espacio' ? b.tecla : null; if (!lista || !lista.length) return false;
+  let i = Math.floor(Math.random() * lista.length); if (lista.length > 1 && i === ultimo[nombre]) i = (i + 1) % lista.length; ultimo[nombre] = i;
+  const s = ctx.createBufferSource(); s.buffer = lista[i]; s.playbackRate.value = rnd(.97, 1.03) * (nombre === 'borra' ? 1.12 : 1);
+  const g = ctx.createGain(); g.gain.value = vol * rnd(.82, 1) * (nombre === 'borra' ? .6 : 1); s.connect(g); g.connect(sal); s.start(); return true;
+}
 export function suena(nombre, letra) {
   if (!sonidoActivo() || !audio()) return;
-  try { SON[nombre](ctx, sal, ctx.currentTime + .005, TIPOS[tipoSonido()], nombre === 'tecla' ? variacion(letra) : 1); } catch { /* sin sonido */ }
+  try {
+    const tipo = tipoSonido();
+    if (TIPOS[tipo] && TIPOS[tipo].real) { if (!MUESTRAS.buffers) { cargaMuestras(ctx); } else if (tocaMuestra(nombre)) return; }
+    const P = TIPOS[tipo] && !TIPOS[tipo].real ? TIPOS[tipo] : TIPOS.clasica;
+    SON[nombre](ctx, sal, ctx.currentTime + .005, P, nombre === 'tecla' ? variacion(letra) : 1);
+  } catch { /* sin sonido */ }
 }
 // Para comprobar la forma del sonido sin altavoces: devuelve las muestras.
 export async function renderiza(nombre, tipo = 'clasica', letra = 'a', seg = 1.6) {
@@ -98,6 +130,8 @@ export async function renderiza(nombre, tipo = 'clasica', letra = 'a', seg = 1.6
   SON[nombre](o, g, .02, TIPOS[tipo], nombre === 'tecla' ? variacion(letra) : 1);
   return Array.from((await o.startRendering()).getChannelData(0));
 }
+
+export async function precarga() { await hayMuestras; if (MUESTRAS.listas && audio()) cargaMuestras(ctx); }
 
 // Engancha un campo de texto: cada letra suena como una tecla; Enter, como el carro; y un timbre al llegar al margen.
 export function conMaquina(el, { margen = 0 } = {}) {

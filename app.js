@@ -2,7 +2,7 @@
 import { createClient } from './vendor/supabase.mjs';
 import { CONFIG } from './config.js';
 import { creaPdf, entregaPdf } from './pdf.js';
-import { conMaquina, sonidoActivo, fijaSonido, maquinaActiva, fijaMaquina, aplicaMaquina, suena, TIPOS, tipoSonido, fijaTipo, volumen, fijaVolumen } from './sonido.js';
+import { conMaquina, sonidoActivo, fijaSonido, maquinaActiva, fijaMaquina, aplicaMaquina, suena, TIPOS, tipoSonido, fijaTipo, volumen, fijaVolumen, hayMuestras, precarga } from './sonido.js';
 import { reducirFoto, haySoporteDeVoz, empezarGrabacion, mmss, reproductorHtml, activaReproductores } from './media.js';
 
 const $app = document.getElementById('app');
@@ -291,6 +291,7 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas, edit = null) {
   document.getElementById('cancelar')?.addEventListener('click', () => vistaBuzon(buzon));
   const f = document.getElementById('f');
   // la máquina de escribir: suena al teclear (y se puede apagar aquí mismo)
+  precarga();
   f.querySelectorAll('textarea, input.titulo').forEach((el) => conMaquina(el, { margen: el.tagName === 'TEXTAREA' ? 58 : 0 }));
   f.insertAdjacentHTML('afterbegin', `<button type="button" class="sonido-btn" id="b-sonido"></button>`);
   const btS = document.getElementById('b-sonido');
@@ -600,6 +601,7 @@ const AVISOS = [
 
 async function vistaPerfil() {
   const anon = !!user.is_anonymous;
+  await hayMuestras;
   let p = { nombre: '', plan: 'prueba', plan_hasta: null, avisos: {} };
   for (const cols of ['nombre, plan, plan_hasta, avisos', 'nombre, plan, plan_hasta', 'nombre']) { try { const [fila] = await leer(sb.from('profiles').select(cols).eq('id', user.id)); if (fila) { p = { ...p, ...fila }; break; } } catch { /* esa columna aún no existe */ } }
   const filas = await leer(sb.from('miembros').select('rol, buzones(id, nombre)').eq('user_id', user.id).eq('estado', 'activa'));

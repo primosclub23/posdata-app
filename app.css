@@ -754,15 +754,17 @@ body.lampara .hoja { filter: brightness(var(--hoja-brillo, .94)) sepia(var(--hoj
 
 /* la hoja se ilumina solo donde llega el haz */
 :root { --sombra-a: .6; }
-.sombra-haz { position: absolute; top: 0; left: var(--lx, 50%); width: 300%; height: 150%; transform: translateX(-50%); background: rgba(8, 6, 4, var(--sombra-a)); -webkit-mask-image: var(--mascara-haz); mask-image: var(--mascara-haz); -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; pointer-events: none; }
-#sombra-haz { filter: blur(9px); position: fixed; inset: -24px; z-index: 20; overflow: hidden; pointer-events: none; opacity: 0; visibility: hidden; transition: opacity .9s ease, visibility .9s; --lx: 50%; }
+:root { --pozo-rx: 470; --pozo-ry: 400; --pozo-h: .12; --k: 1px; --foco-y: 42vh; }
+.sombra-haz { position: absolute; left: var(--lx, 50%); top: 0; width: 3600px; height: 3600px; transform: translate(-50%, calc(var(--foco-y) - 1800px)); transition: transform .7s cubic-bezier(.2,.7,.2,1); pointer-events: none;
+  background: radial-gradient(ellipse calc(var(--pozo-rx) * var(--k)) calc(var(--pozo-ry) * var(--k)) at 50% 50%, transparent calc(var(--pozo-h) * 100%), rgba(8, 6, 4, calc(var(--sombra-a) * .4)) 45%, rgba(8, 6, 4, calc(var(--sombra-a) * .8)) 72%, rgba(8, 6, 4, var(--sombra-a)) 100%); }
+#sombra-haz { position: fixed; inset: 0; z-index: 20; overflow: hidden; pointer-events: none; opacity: 0; visibility: hidden; transition: opacity .9s ease, visibility .9s; --lx: 50%; }
 body.lampara #sombra-haz { opacity: 1; visibility: visible; }
-.noche-prueba .sombra-haz { left: 50%; z-index: 2; } .noche-prueba .lampara { z-index: 3; }
+.noche-prueba { --k: .3px; --foco-y: 150px; } .noche-prueba .sombra-haz { left: 50%; z-index: 2; } .noche-prueba .lampara { z-index: 3; }
 body.lampara .hoja { filter: none; }
 @media print { #sombra-haz { display: none !important; } }
 
-/* el tinte cálido de la luz sobre la hoja, solo dentro del haz */
-#luz-haz { filter: blur(9px); position: fixed; inset: -24px; z-index: 21; overflow: hidden; pointer-events: none; mix-blend-mode: soft-light; opacity: 0; visibility: hidden; transition: opacity .9s ease, visibility .9s; --lx: 50%; }
-body.lampara #luz-haz { opacity: .5; visibility: visible; }
-#luz-haz .sombra-haz { background: rgb(var(--luz-rgb)); -webkit-mask-image: var(--mascara-luz); mask-image: var(--mascara-luz); }
-@media print { #luz-haz { display: none !important; } }
+/* el tinte cálido de la luz sobre la hoja, solo dentro del charco */
+#luz-haz { position: fixed; inset: 0; z-index: 21; overflow: hidden; pointer-events: none; mix-blend-mode: soft-light; opacity: 0; visibility: hidden; transition: opacity .9s ease, visibility .9s; --lx: 50%; }
+body.lampara #luz-haz { opacity: .55; visibility: visible; }
+#luz-haz .sombra-haz { background: radial-gradient(ellipse calc(var(--pozo-rx) * var(--k) * .8) calc(var(--pozo-ry) * var(--k) * .8) at 50% 50%, rgb(var(--luz-rgb)) 0, rgba(var(--luz-rgb), .5) 45%, rgba(var(--luz-rgb), 0) 100%); }
+@media print { #luz-haz, #sombra-haz { display: none !important; } }

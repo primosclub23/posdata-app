@@ -263,22 +263,36 @@ async function cargaLetras(ids) {
 const num = (k, d) => { const v = parseFloat(localStorage.getItem(k)); return isFinite(v) ? v : d; };
 const luz = { brillo: () => num('posdata.luz.brillo', 70), calidez: () => num('posdata.luz.calidez', 55), haz: () => localStorage.getItem('posdata.luz.haz') || 'medio' };
 const HACES = [['amplio', 'Amplio'], ['medio', 'Medio'], ['estrecho', 'Estrecho'], ['foco', 'Foco'], ['difuso', 'Difuso']];
-// La carta solo se ve donde llega el haz: una sombra con un agujero con la forma del haz (y bordes suaves).
-const FORMA_HAZ = { medio: [14, 115], amplio: [30, 140], estrecho: [7, 65], foco: 'e62,85', difuso: 'e125,105' };
-function mascaraHaz(h, inv = false) {
-  const f = FORMA_HAZ[h] || FORMA_HAZ.medio;
-  const capa = (k) => { const e = .72 + k * .05; return typeof f === 'string' ? `<ellipse cx="150" cy="0" rx="${(+f.slice(1).split(',')[0] * e).toFixed(1)}" ry="${(+f.slice(1).split(',')[1] * e).toFixed(1)}"/>` : (([ht, hb]) => { const t = ht * e, w = (ht + (hb - ht) * 1.2) * e; return `<polygon points="${150 - t},0 ${150 + t},0 ${150 + w},150 ${150 - w},150"/>`; })(f); };
-  const forma = `<g fill="url(#g)">${capa(0).replace('/>', ' fill-opacity="1"/>')}</g><g fill="url(#g)" fill-opacity=".13">${Array.from({ length: 13 }, (_, k) => capa(k + 2)).join('')}</g>`;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 150" preserveAspectRatio="none"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">${inv ? '<stop offset="0" stop-color="#fff"/><stop offset=".6" stop-color="#e0e0e0"/><stop offset="1" stop-color="#6a6a6a"/>' : '<stop offset="0" stop-color="#000"/><stop offset=".6" stop-color="#1a1a1a"/><stop offset="1" stop-color="#454545"/>'}</linearGradient><mask id="m"><rect width="300" height="150" fill="${inv ? '#000' : '#fff'}"/>${forma}</mask></defs><rect width="300" height="150" fill="#000" mask="url(#m)"/></svg>`;
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+// La carta solo se ve donde llega el haz: un charco de luz difuminado que sigue a la pluma; el resto queda en penumbra.
+const POZO = { amplio: [620, 520, .22], medio: [470, 400, .12], estrecho: [320, 430, .1], foco: [260, 260, .04], difuso: [700, 600, 0] };   // ancho, alto, parte del centro a plena luz
+function aplicaPozo() {
+  const [rx, ry, h] = POZO[luz.haz()] || POZO.medio, r = document.documentElement.style;
+  r.setProperty('--pozo-rx', rx); r.setProperty('--pozo-ry', ry); r.setProperty('--pozo-h', h);
+  r.setProperty('--k', Math.max(.5, Math.min(1, innerWidth / 1000)) + 'px');
 }
+addEventListener('resize', aplicaPozo);
+function sigueLaPluma() {
+  if (!document.body.classList.contains('lampara')) return;
+  const el = document.activeElement; let y = innerHeight * .42;
+  if (el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && el.type === 'text'))) {
+    const r = el.getBoundingClientRect();
+    if (el.tagName === 'TEXTAREA') {
+      const cs = getComputedStyle(el), esp = document.createElement('div');
+      esp.style.cssText = `position:absolute;visibility:hidden;white-space:pre-wrap;word-wrap:break-word;width:${el.clientWidth}px;font:${cs.font};letter-spacing:${cs.letterSpacing};padding:${cs.padding};box-sizing:border-box;line-height:${cs.lineHeight}`;
+      esp.textContent = el.value.slice(0, el.selectionStart || 0); const m = document.createElement('span'); m.textContent = '​'; esp.append(m); document.body.append(esp);
+      y = r.top + m.offsetTop + m.offsetHeight / 2 - el.scrollTop; esp.remove();
+    } else y = r.top + r.height / 2;
+  }
+  document.documentElement.style.setProperty('--foco-y', Math.max(150, Math.min(innerHeight - 110, y)).toFixed(0) + 'px');
+}
+['input', 'keyup', 'click', 'focusin', 'scroll'].forEach((t) => addEventListener(t, () => requestAnimationFrame(sigueLaPluma), true));
 function aplicaLuz() {
   const b = luz.brillo() / 100, w = luz.calidez() / 100, mezcla = (a, z) => Math.round(a + (z - a) * w);
   const r = document.documentElement.style;
   r.setProperty('--luz-rgb', `255,${mezcla(246, 168)},${mezcla(230, 78)}`);          // de blanco neutro a ámbar cálido
   r.setProperty('--luz-a1', (.14 + .58 * b).toFixed(2)); r.setProperty('--luz-a2', (.07 + .3 * b).toFixed(2)); r.setProperty('--luz-a3', (.02 + .12 * b).toFixed(2));
   r.setProperty('--hoja-brillo', (.8 + .2 * b).toFixed(2)); r.setProperty('--hoja-sepia', (.02 + .16 * w).toFixed(2));
-  r.setProperty('--sombra-a', (.9 - .42 * b).toFixed(2)); r.setProperty('--mascara-haz', mascaraHaz(luz.haz())); r.setProperty('--mascara-luz', mascaraHaz(luz.haz(), true));
+  r.setProperty('--sombra-a', (.98 - .28 * b).toFixed(2)); aplicaPozo();
   document.querySelectorAll('[data-haz]').forEach((e) => e.setAttribute('data-haz', luz.haz()));
 }
 aplicaLuz();
@@ -335,7 +349,7 @@ function aplicaLampara(sonar = false) {
   const n = document.getElementById('noche');
   if (on && !document.body.classList.contains('lampara')) { const fr = document.getElementById('lampara-frente'); for (const x of [n, fr]) x.classList.remove('enciende'); void n.offsetWidth; for (const x of [n, fr]) x.classList.add('enciende'); if (sonar) suena('interruptor'); }
   else if (!on && sonar && document.body.classList.contains('lampara')) suena('interruptor');
-  document.body.classList.toggle('lampara', on);
+  document.body.classList.toggle('lampara', on); if (on) setTimeout(sigueLaPluma, 50);
   const b = document.getElementById('b-lampara'); if (b) { b.setAttribute('aria-pressed', on); b.title = on ? 'Apagar la lamparita' : 'Encender la lamparita'; b.setAttribute('aria-label', b.title); }
   if (on) window.scrollTo({ top: 0 });
 }

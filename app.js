@@ -21,7 +21,7 @@ const ERRORES = {
   fecha_no_valida: 'La fecha de apertura tiene que ser posterior a hoy.', momento_vacio: 'Pon un nombre al momento («Cuando estés triste»).',
   llave_no_valida: 'Ese código no abre ningún buzón.', demasiados_intentos: 'Demasiados intentos. Espera unos minutos.',
   invitacion_no_valida: 'La invitación no es válida o ha caducado.', ya_eres_miembro: 'Ya tienes acceso a este buzón.',
-  no_pendiente: 'Esa carta ya no está pendiente.', papel_premium: 'Los papeles son de Posdata completa.', papel_no_valido: 'Ese papel no existe.', borrador_no_valido: 'Ese borrador ya no existe.', demasiados_borradores: 'Ya tienes 30 borradores en este buzón: borra alguno.', cinta_sin_titulo: 'Ponle un nombre a la cinta.', cancion_sin_titulo: 'Escribe el título de la canción.', cara_llena: 'Esa cara ya tiene 6 canciones. Pasa alguna a la otra cara.', demasiadas_cintas: 'Ya tienes muchas cintas.', 'violates check constraint': 'Revisa los datos: el enlace tiene que empezar por https://', carta_no_editable: 'Esa carta ya no se puede editar: quien la recibe ya puede leerla.', usa_editar: 'Esa carta aún se puede editar directamente.', parte_no_valida: 'Ese texto ya no existe.', texto_largo: 'El texto es demasiado largo.', tema_repetido: 'Ya hay un tema con ese nombre.', tema_vacio: 'Escribe el nombre del tema.', demasiados_temas: 'Ya hay demasiados temas.', tema_no_valido: 'Ese tema ya no existe.',
+  no_pendiente: 'Esa carta ya no está pendiente.', papel_premium: 'Los papeles y las tintas distintos son de Posdata completa.', papel_no_valido: 'Ese papel no existe.', borrador_no_valido: 'Ese borrador ya no existe.', demasiados_borradores: 'Ya tienes 30 borradores en este buzón: borra alguno.', cinta_sin_titulo: 'Ponle un nombre a la cinta.', cancion_sin_titulo: 'Escribe el título de la canción.', cara_llena: 'Esa cara ya tiene 6 canciones. Pasa alguna a la otra cara.', demasiadas_cintas: 'Ya tienes muchas cintas.', 'violates check constraint': 'Revisa los datos: el enlace tiene que empezar por https://', carta_no_editable: 'Esa carta ya no se puede editar: quien la recibe ya puede leerla.', usa_editar: 'Esa carta aún se puede editar directamente.', parte_no_valida: 'Ese texto ya no existe.', texto_largo: 'El texto es demasiado largo.', tema_repetido: 'Ya hay un tema con ese nombre.', tema_vacio: 'Escribe el nombre del tema.', demasiados_temas: 'Ya hay demasiados temas.', tema_no_valido: 'Ese tema ya no existe.',
   demasiados_adjuntos: 'Demasiadas fotos o audios en una carta.', adjunto_no_subido: 'No se ha podido subir un archivo. Inténtalo otra vez.', 'row-level security': 'No puedes subir archivos a este buzón.', 'maximum allowed size': 'Ese archivo pesa demasiado.', 'mime type': 'Ese tipo de archivo no está permitido.', correo_no_valido: 'Ese correo no parece válido.', no_autenticado: 'Entra primero.',
   'Invalid login credentials': 'Correo o contraseña incorrectos.', 'User already registered': 'Ya hay una cuenta con ese correo.',
   'Email not confirmed': 'Confirma tu correo antes de entrar (mira tu bandeja).',
@@ -44,7 +44,32 @@ async function leer(q) { const { data, error } = await q; if (error) throw error
 // ---------- cabecera ----------
 let nombrePerfil = null, planPerfil = 'prueba'; // null = aún sin cargar
 const premium = () => planPerfil !== 'gratis';
-const PAPELES = [['crema', 'Crema'], ['kraft', 'Kraft'], ['pergamino', 'Pergamino'], ['cuaderno', 'Cuaderno'], ['cuadricula', 'Cuadrícula'], ['aereo', 'Correo aéreo'], ['carbon', 'Noche']];
+const ESTILO0 = { papel: 'crema', textura: 'original', hoja: 'rayas', tinta: 'negra' };
+const COLORES_PAPEL = [['crema', 'Crema', '#FBF8F1'], ['beis', 'Beis', '#EFE4CE'], ['gris', 'Gris', '#E6E5E1'], ['azul', 'Azul', '#DDE8EF'], ['salvia', 'Salvia', '#D8E2D2'], ['rosa', 'Rosa', '#F0D9D6'], ['kraft', 'Kraft', '#CDB48D'], ['pergamino', 'Pergamino', '#EBDDB5'], ['noche', 'Noche', '#1F1C18']];
+const TEXTURAS = [['original', 'Original'], ['algodon', 'Algodón'], ['verjurado', 'Verjurado'], ['reciclado', 'Reciclado'], ['lisa', 'Lisa']];
+const HOJAS = [['rayas', 'Rayada'], ['lisa', 'Lisa'], ['cuaderno', 'Cuaderno'], ['cuadricula', 'Cuadrícula'], ['aereo', 'Correo aéreo']];
+const TINTAS = [['negra', 'Negra', '#1A1810'], ['sepia', 'Sepia', '#4A3320'], ['azul', 'Azul', '#1E3F8F'], ['medianoche', 'Medianoche', '#232C55'], ['bosque', 'Bosque', '#23412E'], ['burdeos', 'Burdeos', '#6B1F2B']];
+const CAPAS = [['papel', 'Color', COLORES_PAPEL], ['textura', 'Tipo de papel', TEXTURAS], ['hoja', 'Hoja', HOJAS], ['tinta', 'Tinta', TINTAS]];
+const normaliza = (o) => { const e = {}; for (const [k, , lista] of CAPAS) e[k] = lista.some((x) => x[0] === o?.[k]) ? o[k] : ESTILO0[k]; return e; };
+const esDefecto = (e) => Object.keys(ESTILO0).every((k) => e[k] === ESTILO0[k]);
+const poneAtributos = (el, e) => { for (const k of Object.keys(ESTILO0)) el.dataset[k] = e[k]; };
+const atributos = (e) => Object.keys(ESTILO0).map((k) => `data-${k}="${e[k]}"`).join(' ');
+const COLS_ESTILO = ', papel, textura, hoja, tinta';
+let escrituraPerfil = null;                               // valores iniciales guardados en la cuenta
+const estiloInicial = () => normaliza(escrituraPerfil || (() => { try { return JSON.parse(localStorage.getItem('posdata.escritura') || 'null'); } catch { return null; } })());
+// el selector por capas (color, tipo de papel, hoja y tinta)
+function selectorEstilo(e, id = '') {
+  const muestra = (capa, k, n, dentro) => `<button type="button" class="muestra ${e[capa] === k ? 'on' : ''}" data-capa="${capa}" data-valor="${k}" aria-label="${n}" aria-pressed="${e[capa] === k}">${dentro}<span>${n}</span>${ESTILO0[capa] !== k && !premium() ? '<u class="candado-p" title="Posdata completa">🔒</u>' : ''}</button>`;
+  return `<div class="selector-estilo" ${id ? `id="${id}"` : ''}>${CAPAS.map(([capa, titulo, lista]) => `<div class="capa"><p class="lbl">${titulo}</p><div class="muestras">${lista.map(([k, n, c]) => muestra(capa, k, n, capa === 'papel' || capa === 'tinta' ? `<i class="circulo" style="background:${c}"></i>` : capa === 'textura' ? `<i class="tex tex-${k}"></i>` : `<i class="hojam hojam-${k}"></i>`)).join('')}</div></div>`).join('')}</div>`;
+}
+function enlazaSelector(raiz, dame, pon) {
+  raiz.querySelectorAll('[data-capa]').forEach((b) => (b.onclick = () => {
+    const capa = b.dataset.capa, valor = b.dataset.valor;
+    if (ESTILO0[capa] !== valor && !premium()) return avisa('Los papeles y las tintas distintos son de Posdata completa.', true);
+    pon({ ...dame(), [capa]: valor });
+    raiz.querySelectorAll(`[data-capa="${capa}"]`).forEach((x) => { const on = x.dataset.valor === valor; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
+  }));
+}
 function pintaTop() {
   if (!user) { $top.innerHTML = ''; return; }
   const ini = user.is_anonymous ? '' : esc(((nombrePerfil || '').trim() || (user.email || '?').trim()).charAt(0).toUpperCase());
@@ -54,7 +79,12 @@ function pintaTop() {
 // ---------- rutas ----------
 async function ruta() {
   document.title = 'Posdata'; document.body.classList.remove('lampara');
-  if (user && !user.is_anonymous && nombrePerfil === null) { try { const [f] = await leer(sb.from('profiles').select('nombre, plan').eq('id', user.id)); nombrePerfil = (f && f.nombre) || ''; planPerfil = (f && f.plan) || 'prueba'; } catch { try { const [f] = await leer(sb.from('profiles').select('nombre').eq('id', user.id)); nombrePerfil = (f && f.nombre) || ''; } catch { nombrePerfil = ''; } } }
+  if (user && !user.is_anonymous && nombrePerfil === null) {
+    nombrePerfil = '';
+    for (const cols of ['nombre, plan, escritura', 'nombre, plan', 'nombre']) {
+      try { const [f] = await leer(sb.from('profiles').select(cols).eq('id', user.id)); if (f) { nombrePerfil = f.nombre || ''; planPerfil = f.plan || 'prueba'; escrituraPerfil = f.escritura && Object.keys(f.escritura).length ? f.escritura : null; break; } } catch { /* esa columna aún no existe */ }
+    }
+  }
   pintaTop();
   const h = location.hash || '#/';
   try {
@@ -330,19 +360,20 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas, edit = null) {
   const hoy = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   let fotos = [], voz = null, grabando = null, temaSel = edit ? edit.carta.tema_id : null, cand = edit ? edit.carta.candado : 'ninguno';
   let borradorId = null, limpiaBorrador = async () => {};
-  let papel = edit ? (edit.carta.papel || 'crema') : 'crema';
+  const estiloOriginal = edit ? normaliza(edit.carta) : null;
+  let estilo = edit ? normaliza(edit.carta) : estiloInicial();
   const exFotos = edit ? edit.adjuntos.filter((a) => a.tipo === 'foto').map((a) => ({ ...a })) : [];
   let exVoz = edit ? edit.adjuntos.find((a) => a.tipo === 'audio') || null : null;
   const quitar = [];
   panel.innerHTML = `${edit ? '' : '<div id="b-lista"></div>'}<div class="mesa"><div class="pols" id="pols" aria-label="Fotos de la carta"></div>
-    <form class="hoja ${papel !== 'crema' ? 'papel-' + papel : ''}" id="f">
+    <form class="hoja" ${atributos(estilo)} id="f">
       <p class="etq fecha">${edit ? 'Editar esta carta · ' + esc(fechaLarga(edit.carta.dia)) : esc(hoy)}${edit ? '' : '<span class="b-estado" id="b-estado" aria-live="polite"></span>'}</p>
       <p class="mano para">Para ${esc(b.nombre)},</p>
       <input class="titulo" name="titulo" maxlength="80" placeholder="Un título (opcional)" value="${edit ? esc(edit.carta.titulo) : ''}">
       ${edit ? edit.partes.map((p, i) => `<label class="parte-ed"><span>${edit.partes.length > 1 ? 'Parte ' + (i + 1) : 'Tu carta'}</span><textarea data-parte="${p.id}" required>${esc(p.texto)}</textarea></label>`).join('') : `<textarea name="texto" required placeholder="${dueña ? 'Lo que querrías que supiera…' : 'Escribe aquí tu carta…'}"></textarea>`}
       ${yo.firma ? `<p class="mano firma-linea">${esc(yo.firma)}</p>` : ''}
       <div class="pie">
-        <div><p class="lbl" style="margin-bottom:8px">Papel</p><div class="papeles" id="papeles">${PAPELES.map(([k, n]) => `<button type="button" class="muestra-papel ${k === papel ? 'on' : ''}" data-papel="${k}" aria-label="Papel ${n}" aria-pressed="${k === papel}"><i class="p-${k}"></i><span>${n}</span>${k !== 'crema' && !premium() ? '<u class="candado-p" title="Posdata completa">🔒</u>' : ''}</button>`).join('')}</div></div>
+        <details class="papel-det"><summary><span>Papel y tinta</span><em class="muted" id="resumen-estilo"></em></summary>${selectorEstilo(estilo)}<button type="button" class="enlace" id="estilo-defecto" style="margin-top:12px">Usar este papel en mis cartas nuevas</button></details>
         <div><p class="lbl" style="margin-bottom:8px">Tema</p><div class="chips" id="temas"></div></div>
         <div><p class="lbl" style="margin-bottom:8px">Añadir a la carta</p>
           <div class="fila"><button type="button" class="herr" id="b-foto">${ICONO.foto} Foto</button>${haySoporteDeVoz() ? `<button type="button" class="herr" id="b-voz">${ICONO.voz} Grabar voz</button>` : ''}</div>
@@ -356,8 +387,15 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas, edit = null) {
         <div class="fila"><button class="btn" id="enviar">${edit ? 'Guardar los cambios' : dueña ? 'Guardar en el buzón' : 'Enviar la carta'}</button>${edit ? '<button type="button" class="enlace" id="cancelar">Cancelar</button>' : '<button type="button" class="btn sec" id="b-guardar">Guardar borrador</button>'}</div></div></form></div>`;
   document.getElementById('cancelar')?.addEventListener('click', () => vistaBuzon(buzon));
   const f = document.getElementById('f');
-  const ponPapel = (k) => { papel = k; f.className = 'hoja' + (k !== 'crema' ? ' papel-' + k : ''); panel.querySelectorAll('[data-papel]').forEach((x) => { x.classList.toggle('on', x.dataset.papel === k); x.setAttribute('aria-pressed', x.dataset.papel === k); }); };
-  panel.querySelectorAll('[data-papel]').forEach((b) => (b.onclick = () => { if (b.dataset.papel !== 'crema' && !premium()) return avisa('Los papeles son de Posdata completa.', true); ponPapel(b.dataset.papel); }));
+  const nombreDe = (lista, k) => (lista.find((x) => x[0] === k) || [])[1] || k;
+  const resumenEstilo = (e) => `${nombreDe(COLORES_PAPEL, e.papel)} · ${nombreDe(TEXTURAS, e.textura).toLowerCase()} · ${nombreDe(HOJAS, e.hoja).toLowerCase()} · tinta ${nombreDe(TINTAS, e.tinta).toLowerCase()}`;
+  const ponEstilo = (e) => { estilo = normaliza(e); poneAtributos(f, estilo); panel.querySelectorAll('.selector-estilo [data-capa]').forEach((x) => { const on = estilo[x.dataset.capa] === x.dataset.valor; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); const r = document.getElementById('resumen-estilo'); if (r) r.textContent = resumenEstilo(estilo); };
+  enlazaSelector(panel, () => estilo, ponEstilo); ponEstilo(estilo);
+  document.getElementById('estilo-defecto').onclick = async () => {
+    try { await rpc('guardar_escritura', { p_papel: estilo.papel, p_textura: estilo.textura, p_hoja: estilo.hoja, p_tinta: estilo.tinta }); escrituraPerfil = { ...estilo }; }
+    catch (e) { if (!(e?.code === 'PGRST202' || /guardar_escritura|schema cache/i.test(e?.message || ''))) return avisa(msgError(e), true); }   // sin la migración: solo en este dispositivo
+    localStorage.setItem('posdata.escritura', JSON.stringify(estilo)); avisa('Listo: tus cartas nuevas empezarán con este papel y esta tinta.');
+  };
   // la máquina de escribir: suena al teclear (y se puede apagar aquí mismo)
   precarga();
   f.querySelectorAll('textarea, input.titulo').forEach((el) => conMaquina(el, { margen: el.tagName === 'TEXTAREA' ? 58 : 0 }));
@@ -448,12 +486,12 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas, edit = null) {
       bt.textContent = 'Guardando…';
       if (edit) {
         await rpc('editar_carta', { p_carta: edit.carta.id, p_titulo: f.titulo.value, p_textos: [...f.querySelectorAll('[data-parte]')].map((t) => ({ id: t.dataset.parte, texto: t.value })), p_abre_el: edit.carta.candado === 'fecha' ? f.abre.value || null : null, p_momento: edit.carta.candado === 'momento' ? f.momento.value : null, p_quitar: quitar, p_adjuntos: adjuntos, p_tema_id: temaSel, p_cambiar_tema: true });
-        if (papel !== (edit.carta.papel || 'crema')) await rpc('poner_papel', { p_carta: edit.carta.id, p_papel: papel });
+        if (JSON.stringify(estilo) !== JSON.stringify(estiloOriginal)) await rpc('poner_papel', { p_carta: edit.carta.id, p_papel: estilo.papel, p_textura: estilo.textura, p_hoja: estilo.hoja, p_tinta: estilo.tinta });
         const rutas = edit.adjuntos.filter((a) => quitar.includes(a.id)).map((a) => a.ruta); if (rutas.length) sb.storage.from('adjuntos').remove(rutas).catch(() => {});
         avisa('Cambios guardados.'); pestana = 'cartas'; vistaBuzon(buzon); return;
       }
       const nuevaId = await rpc('escribir', { p_buzon: buzon, p_texto: f.texto.value, p_titulo: f.titulo.value, p_candado: cand, p_abre_el: cand === 'fecha' ? f.abre.value || null : null, p_momento: cand === 'momento' ? f.momento.value : null, p_adjuntos: adjuntos, p_tema_id: temaSel });
-      if (papel !== 'crema') { try { await rpc('poner_papel', { p_carta: nuevaId, p_papel: papel }); } catch (e) { avisa('La carta se ha guardado, pero no se ha podido poner el papel: ' + msgError(e), true); } }
+      if (!esDefecto(estilo)) { try { await rpc('poner_papel', { p_carta: nuevaId, p_papel: estilo.papel, p_textura: estilo.textura, p_hoja: estilo.hoja, p_tinta: estilo.tinta }); } catch (e) { avisa('La carta se ha guardado, pero no se ha podido poner el papel: ' + msgError(e), true); } }
       fotos.forEach((p) => URL.revokeObjectURL(p.url)); if (voz) URL.revokeObjectURL(voz.url);
       if (!edit) await limpiaBorrador();
       avisa(dueña ? 'Guardado en el buzón.' : 'Enviada.'); pestana = 'cartas'; vistaBuzon(buzon);
@@ -466,7 +504,7 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas, edit = null) {
   if (!edit) {
   const clave = `posdata.borrador.${user.id}.${buzon}`;
   let tLocal, tServ, ultimoGuardado = '';
-  const campos = () => ({ titulo: f.titulo.value, texto: f.texto.value, tema: temaSel, papel, cand, abre: f.abre?.value || null, momento: f.momento?.value || '' });
+  const campos = () => ({ titulo: f.titulo.value, texto: f.texto.value, tema: temaSel, estilo: { ...estilo }, cand, abre: f.abre?.value || null, momento: f.momento?.value || '' });
   const hayAlgo = () => !!(f.titulo.value.trim() || f.texto.value.trim());
   const dice = (t) => { const e = document.getElementById('b-estado'); if (e) e.textContent = t ? '· ' + t : ''; };
   const hace = (ts) => { const m = Math.round((Date.now() - new Date(ts).getTime()) / 60000); return m < 1 ? 'hace un momento' : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`; };
@@ -477,7 +515,7 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas, edit = null) {
     if (!explicito && firma === ultimoGuardado) return borradorId;
     try {
       const args = { p_buzon: buzon, p_id: borradorId, p_titulo: c.titulo, p_texto: c.texto, p_tema_id: c.tema, p_candado: c.cand, p_abre_el: c.cand === 'fecha' ? c.abre : null, p_momento: c.cand === 'momento' ? c.momento : null };
-      try { borradorId = await rpc('guardar_borrador', { ...args, p_papel: c.papel }); } catch (e) { if (!/p_papel|PGRST202|schema cache/i.test(e?.message || '') && e?.code !== 'PGRST202') throw e; borradorId = await rpc('guardar_borrador', args); }   // por si aún no está la migración del papel
+      try { borradorId = await rpc('guardar_borrador', { ...args, p_papel: c.estilo.papel, p_textura: c.estilo.textura, p_hoja: c.estilo.hoja, p_tinta: c.estilo.tinta }); } catch (e) { if (!/p_papel|p_textura|PGRST202|schema cache/i.test(e?.message || '') && e?.code !== 'PGRST202') throw e; borradorId = await rpc('guardar_borrador', args); }   // por si aún no está la migración del papel
       ultimoGuardado = firma; guardaLocal(); dice('borrador guardado'); return borradorId;
     } catch (e) { if (explicito) throw e; dice('guardado en este dispositivo'); return null; }
   }
@@ -486,14 +524,14 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas, edit = null) {
     if (borradorId) { try { await rpc('borrar_borrador', { p_id: borradorId }); } catch { /* ya no está */ } borradorId = null; }
   };
   function rellena(d) {
-    f.titulo.value = d.titulo || ''; f.texto.value = d.texto || ''; temaSel = d.tema ?? d.tema_id ?? null; pintaTemasChips(); ponPapel(d.papel || 'crema');
+    f.titulo.value = d.titulo || ''; f.texto.value = d.texto || ''; temaSel = d.tema ?? d.tema_id ?? null; pintaTemasChips(); ponEstilo(d.estilo || d);
     cand = d.cand || d.candado || 'ninguno';
     if (dueña) { panel.querySelectorAll('[data-c]').forEach((x) => x.classList.toggle('on', x.dataset.c === cand)); document.getElementById('l-fecha').hidden = cand !== 'fecha'; document.getElementById('l-momento').hidden = cand !== 'momento'; document.getElementById('ay').textContent = AY[cand]; f.abre.value = d.abre || d.abre_el || ''; f.momento.value = d.momento || ''; }
     ultimoGuardado = JSON.stringify(campos());
   }
   const alEscribir = () => { dice('sin guardar'); clearTimeout(tLocal); tLocal = setTimeout(() => { guardaLocal(); dice(borradorId ? 'sin guardar' : 'guardado en este dispositivo'); }, 300); clearTimeout(tServ); tServ = setTimeout(() => guardaServidor(), 2500); };
   ['input', 'change'].forEach((ev) => f.addEventListener(ev, alEscribir));
-  panel.addEventListener('click', (e) => { if (e.target.closest('[data-c], [data-t], [data-papel], .pol-x')) alEscribir(); });
+  panel.addEventListener('click', (e) => { if (e.target.closest('[data-c], [data-t], [data-capa], .pol-x')) alEscribir(); });
   const alSalir = () => { if (document.hidden) { guardaLocal(); if (hayAlgo()) guardaServidor(); } };
   document.addEventListener('visibilitychange', alSalir); addEventListener('pagehide', guardaLocal);
 
@@ -502,7 +540,7 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas, edit = null) {
   const local = (() => { try { return JSON.parse(localStorage.getItem(clave) || 'null'); } catch { return null; } })();
   const pintaLista = async () => {
     let ds = []; const qb = (cols) => leer(sb.from('borradores').select(cols).eq('buzon_id', buzon).order('actualizado', { ascending: false }));
-    try { ds = await qb('id, titulo, texto, tema_id, candado, abre_el, momento, actualizado, papel'); } catch { try { ds = await qb('id, titulo, texto, tema_id, candado, abre_el, momento, actualizado'); } catch { /* sin borradores en el servidor */ } }
+    try { ds = await qb('id, titulo, texto, tema_id, candado, abre_el, momento, actualizado' + COLS_ESTILO); } catch { try { ds = await qb('id, titulo, texto, tema_id, candado, abre_el, momento, actualizado'); } catch { /* sin borradores en el servidor */ } }
     ds = ds.filter((d) => d.id !== borradorId);
     lista.innerHTML = ds.length ? `<div class="papel b-lista"><p class="etq">Borradores · ${ds.length}</p>${ds.map((d) => `<div class="b-fila" data-bid="${d.id}"><div class="txt"><b>${esc(d.titulo || d.texto.trim().slice(0, 48) || 'Sin título')}</b><span class="muted">${esc(d.titulo ? d.texto.trim().slice(0, 60) : '')} ${hace(d.actualizado)}</span></div><button type="button" class="btn peq sec" data-seguir="${d.id}">Seguir</button><button type="button" class="enlace" data-borra-b="${d.id}">Borrar</button></div>`).join('')}</div>` : '';
     lista.querySelectorAll('[data-seguir]').forEach((x) => (x.onclick = async () => {
@@ -534,7 +572,7 @@ function pintaEscribir(panel, buzon, rol, b, yo, temas, edit = null) {
 const SELLO = { abierta: ['Abierta hoy', ''], pendiente: ['Pendiente', 'pend'], sellada: ['Sellada', 'ok'], rechazada: ['Rechazada', 'pend'] };
 const sinTildes = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 async function pintaCartas(panel, buzon, rol, b, temas, yo) {
-  const COLS = (conPapel) => `id, autor_id, firma, titulo, dia, estado, candado, abre_el, momento, abierta_en, tema_id,${conPapel ? ' papel,' : ''} partes(id, orden, texto, posdata, creada_en), adjuntos(id, tipo)`;
+  const COLS = (conPapel) => `id, autor_id, firma, titulo, dia, estado, candado, abre_el, momento, abierta_en, tema_id,${conPapel ? ' papel, textura, hoja, tinta,' : ''} partes(id, orden, texto, posdata, creada_en), adjuntos(id, tipo)`;
   const consulta = (conPapel) => { let q = sb.from('cartas').select(COLS(conPapel)).eq('buzon_id', buzon).order('dia', { ascending: false }).order('creada_en', { ascending: false }); if (rol === 'escribe') q = q.eq('autor_id', user.id); return q; };
   let cartas; try { cartas = await leer(consulta(true)); } catch { cartas = await leer(consulta(false)); }   // sin la migración del papel, como antes
   await cargaLetras(cartas.map((c) => c.autor_id));
@@ -576,7 +614,7 @@ async function pintaCartas(panel, buzon, rol, b, temas, yo) {
         ${c.candado === 'momento' && rol === 'receptor' ? `<div class="acciones"><button class="btn peq" data-abrir="${c.id}">Romper el sello</button></div>` : ''}`
       : `<button class="carta-cab" data-abre="${c.id}" aria-expanded="${abierta}">${cabeza(false)}<span class="flecha">›</span></button>
         <div class="lee"><div>
-          <div class="lectura ${c.papel && c.papel !== 'crema' ? 'papel-' + c.papel : ''}"><div class="adj" data-adj="${c.id}"></div><div class="texto" style="${estiloLetra(c.autor_id)}">${partes.map((p) => `<div class="parte ${p.posdata ? 'pd' : ''}">${p.posdata ? `<span class="mano pd-et">P. D. · ${fechaCorta(p.creada_en)}</span>` : ''}${esc(p.texto)}</div>`).join('')}${c.firma ? `<p class="mano firma" style="${estiloLetra(c.autor_id)}">${esc(c.firma)}</p>` : ''}</div><div class="adj-fotos" data-fotos="${c.id}"></div></div>
+          <div class="lectura" ${esDefecto(normaliza(c)) ? '' : atributos(normaliza(c))}><div class="adj" data-adj="${c.id}"></div><div class="texto" style="${estiloLetra(c.autor_id)}">${partes.map((p) => `<div class="parte ${p.posdata ? 'pd' : ''}">${p.posdata ? `<span class="mano pd-et">P. D. · ${fechaCorta(p.creada_en)}</span>` : ''}${esc(p.texto)}</div>`).join('')}${c.firma ? `<p class="mano firma" style="${estiloLetra(c.autor_id)}">${esc(c.firma)}</p>` : ''}</div><div class="adj-fotos" data-fotos="${c.id}"></div></div>
           ${accionesCarta(c, rol)}
           ${rol === 'dueno' ? `<label class="etiqueta"><span>Tema</span><select data-tema="${c.id}"><option value="">Sin tema</option>${temas.map((t) => `<option value="${t.id}" ${t.id === c.tema_id ? 'selected' : ''}>${esc(t.nombre)}</option>`).join('')}</select></label>` : ''}
         </div></div>`}
@@ -678,7 +716,7 @@ async function vistaMemoria(id) {
   try {
     const [temas, todas] = await Promise.all([
       leer(sb.from('temas').select('id, nombre').eq('buzon_id', id)),
-      (async () => { const q = (p) => sb.from('cartas').select(`id, firma, titulo, dia, estado, candado, abre_el, momento, tema_id, creada_en, autor_id,${p ? ' papel,' : ''} partes(orden, texto, posdata, creada_en), adjuntos(id, tipo, ruta, pie, duracion, orden)`).eq('buzon_id', id).order('dia', { ascending: true }).order('creada_en', { ascending: true }); try { return await leer(q(true)); } catch { return await leer(q(false)); } })(),
+      (async () => { const q = (p) => sb.from('cartas').select(`id, firma, titulo, dia, estado, candado, abre_el, momento, tema_id, creada_en, autor_id,${p ? ' papel, textura, hoja, tinta,' : ''} partes(orden, texto, posdata, creada_en), adjuntos(id, tipo, ruta, pie, duracion, orden)`).eq('buzon_id', id).order('dia', { ascending: true }).order('creada_en', { ascending: true }); try { return await leer(q(true)); } catch { return await leer(q(false)); } })(),
     ]);
     await cargaLetras(todas.map((c) => c.autor_id));
     const nTema = Object.fromEntries(temas.map((t) => [t.id, t.nombre]));
@@ -699,7 +737,7 @@ async function vistaMemoria(id) {
       const fotos = (c.adjuntos || []).filter((a) => a.tipo === 'foto').sort((x, y) => x.orden - y.orden);
       const voz = (c.adjuntos || []).find((a) => a.tipo === 'audio');
       const aviso = c.estado === 'pendiente' ? 'Pendiente de aprobar' : (esDueña && c.candado === 'fecha' && c.abre_el > hoyLocal()) ? `Se abrirá el ${largo(c.abre_el)}` : (esDueña && c.candado === 'momento' && !c.abierta_en) ? `Para cuando… ${c.momento}` : '';
-      return `<article class="mem-carta ${c.papel && c.papel !== 'crema' ? 'papel-' + c.papel : ''}"><p class="etq">${esc(largo(c.dia))}${c.tema_id && nTema[c.tema_id] ? ' · ' + esc(nTema[c.tema_id]) : ''}${aviso ? ' · ' + esc(aviso) : ''}</p>
+      return `<article class="mem-carta" ${esDefecto(normaliza(c)) ? '' : atributos(normaliza(c))}><p class="etq">${esc(largo(c.dia))}${c.tema_id && nTema[c.tema_id] ? ' · ' + esc(nTema[c.tema_id]) : ''}${aviso ? ' · ' + esc(aviso) : ''}</p>
         <h2>${esc(c.titulo || 'Sin título')}</h2>
         <div class="mem-texto" style="${estiloLetra(c.autor_id)}">${partes.map((p) => `<div class="mem-parte ${p.posdata ? 'pd' : ''}">${p.posdata ? `<span class="mano pd-et">P. D. · ${esc(fechaCorta(p.creada_en))}</span>` : ''}${esc(p.texto)}</div>`).join('')}</div>
         ${c.firma ? `<p class="mano mem-firma" style="${estiloLetra(c.autor_id)}">${esc(c.firma)}</p>` : ''}
@@ -732,7 +770,7 @@ async function vistaMemoria(id) {
           const fotos = (c.adjuntos || []).filter((a) => a.tipo === 'foto').sort((x, y) => x.orden - y.orden);
           const voz = (c.adjuntos || []).find((a) => a.tipo === 'audio');
           const aviso = c.estado === 'pendiente' ? 'Pendiente de aprobar' : (esDueña && c.candado === 'fecha' && c.abre_el > hoyLocal()) ? `Se abrirá el ${largo(c.abre_el)}` : (esDueña && c.candado === 'momento' && !c.abierta_en) ? `Para cuando… ${c.momento}` : '';
-          return { titulo: c.titulo, firma: c.firma, autorId: c.autor_id, papel: c.papel || 'crema', etiqueta: [largo(c.dia), c.tema_id && nTema[c.tema_id], aviso].filter(Boolean).join(' · '),
+          return { titulo: c.titulo, firma: c.firma, autorId: c.autor_id, estilo: normaliza(c), etiqueta: [largo(c.dia), c.tema_id && nTema[c.tema_id], aviso].filter(Boolean).join(' · '),
             partes: partes.map((p) => ({ texto: p.texto, posdata: p.posdata, cuando: fechaCorta(p.creada_en) })),
             fotos: await Promise.all(fotos.map(async (f) => ({ data: await cuadrada(url[f.ruta]), pie: f.pie }))), voz: voz ? mmss(voz.duracion || 0) : '' };
         })),
@@ -896,6 +934,13 @@ async function vistaPerfil() {
       <div><p class="lbl" style="margin-bottom:8px">Cómo suena</p><div class="chips" id="s-tipos">${Object.entries(TIPOS).map(([k, v]) => `<button type="button" class="chip ${tipoSonido() === k ? 'on' : ''}" data-tipo="${k}">${v.nombre}</button>`).join('')}</div></div>
       <label class="rango"><span>Volumen</span><input type="range" id="s-vol" min="10" max="100" step="5" value="${Math.round(volumen() * 100)}" aria-label="Volumen de la máquina de escribir"></label>
       <p class="maquina-prueba" id="m-prueba" tabindex="0">Pulsa aquí y prueba el sonido.</p></div>
+    ${anon ? '' : `<div class="papel" id="papel-tinta"><div><p class="etq">Escribir</p><h3 style="margin-top:4px">Papel y tinta</h3></div>
+      <p class="muted">Cómo se ven tus cartas. Elige el papel y la tinta con los que quieres empezar cada carta nueva; en la hoja siempre puedes cambiarlos.</p>
+      <div class="chips" id="prev-modo"><button type="button" class="chip on" data-prev="dia">Vista previa: día</button><button type="button" class="chip" data-prev="noche">Vista previa: noche</button></div>
+      <div class="prev-papel dia" id="prev-papel"><div class="hoja-muestra" id="hoja-muestra" ${atributos(estiloInicial())}><p>Querida lectora,<br>aquí la tinta es distinta.</p></div></div>
+      <p class="etq" style="margin-top:0">Opciones iniciales para cartas nuevas</p>
+      ${selectorEstilo(estiloInicial(), 'selector-perfil')}
+      <p class="ayuda">El papel crema, el tipo original, la hoja rayada y la tinta negra son gratis. Lo demás viene con Posdata completa${premium() ? '' : ' (ahora aparece con candado)'}.</p></div>`}
     <div class="papel" id="luz-noche"><div><p class="etq">Escribir de noche</p><h3 style="margin-top:4px">Luz nocturna</h3></div>
       <p class="muted">Una lamparita retro para escribir con calma: baja la luz de la pantalla y se esconde todo menos la hoja.</p>
       <div><p class="lbl" style="margin-bottom:8px">Cuándo se enciende</p><div class="chips" id="l-modos">${[['no', 'Apagada'], ['si', 'Encendida'], ['auto', 'De noche (21:00 a 7:00)']].map(([k, n]) => `<button type="button" class="chip ${lamparaModo() === k ? 'on' : ''}" data-lmodo="${k}">${n}</button>`).join('')}</div><p class="ayuda" style="margin-top:6px">En la hoja de escribir, el botón de la lámpara también la enciende y apaga.</p></div>
@@ -920,6 +965,18 @@ async function vistaPerfil() {
   if (anon) return;
   document.getElementById('f-nombre').onsubmit = async (ev) => { ev.preventDefault(); const { error } = await sb.from('profiles').update({ nombre: ev.target.n.value.trim().slice(0, 60) }).eq('id', user.id); if (error) return avisa(msgError(error), true); nombrePerfil = ev.target.n.value.trim().slice(0, 60); pintaTop(); avisa('Guardado.'); vistaPerfil(); };
   document.getElementById('f-clave').onsubmit = async (ev) => { ev.preventDefault(); const { error } = await sb.auth.updateUser({ password: ev.target.c.value }); if (error) return avisa(msgError(error), true); ev.target.reset(); avisa('Contraseña cambiada.'); };
+  { // papel y tinta: valores iniciales y vista previa de día y de noche
+    let actual = estiloInicial(), tGuarda; const muestra = document.getElementById('hoja-muestra'), prev = document.getElementById('prev-papel');
+    enlazaSelector(document.getElementById('selector-perfil'), () => actual, (e) => {
+      actual = normaliza(e); poneAtributos(muestra, actual); clearTimeout(tGuarda);
+      tGuarda = setTimeout(async () => {
+        try { await rpc('guardar_escritura', { p_papel: actual.papel, p_textura: actual.textura, p_hoja: actual.hoja, p_tinta: actual.tinta }); escrituraPerfil = { ...actual }; }
+        catch (er) { if (!(er?.code === 'PGRST202' || /guardar_escritura|schema cache/i.test(er?.message || ''))) return avisa(msgError(er), true); }
+        localStorage.setItem('posdata.escritura', JSON.stringify(actual)); avisa('Guardado: tus cartas nuevas empezarán así.');
+      }, 500);
+    });
+    document.getElementById('prev-modo').onclick = (ev) => { const b = ev.target.closest('[data-prev]'); if (!b) return; document.querySelectorAll('#prev-modo .chip').forEach((x) => x.classList.toggle('on', x === b)); prev.className = 'prev-papel ' + b.dataset.prev; };
+  }
   document.getElementById('qr-escanear').onclick = abreEscaner;
   document.getElementById('qr-manual').onsubmit = (ev) => { ev.preventDefault(); const c = ev.target.c.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase(); if (c.length !== 10) return avisa('El código tiene 10 letras o números.', true); location.hash = '#/qr/' + c; };
   // máquina de escribir y avisos

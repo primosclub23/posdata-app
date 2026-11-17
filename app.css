@@ -612,45 +612,86 @@ body.sin-maquina { --maquina: 'Playfair Display', Georgia, serif; --maquina-pt: 
 #b-lista:empty { display: none; }
 #b-lista, .b-banner { margin-bottom: 18px; }
 
-/* =====================  PAPELES DE LA CARTA  ===================== */
+/* =====================  PAPEL Y TINTA (cuatro capas)  ===================== */
 :root { --grano: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .32  0 0 0 0 .22  0 0 0 0 .12  0 0 0 .26 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"); }
-/* los textos de la hoja y de la lectura usan la tinta y las líneas del papel */
-.hoja { --pp-tinta: var(--text); --pp-regla: var(--regla); }
+/* capas: data-papel (color) · data-textura · data-hoja · data-tinta.  El combo crema/original/rayas/negra sigue al tema. */
+[data-papel] { --pp-tinta: var(--text); --pp-regla: var(--regla); }
+[data-papel]:not([data-papel="crema"]) { --text: #2A241A; --muted: #7A6D58; --border: rgba(60,45,25,.2); --pp-regla: rgba(60,45,25,.16); --lin: 42,36,26; }
+[data-papel="beis"] { background-color: #EFE4CE; } [data-papel="gris"] { background-color: #E6E5E1; } [data-papel="azul"] { background-color: #DDE8EF; }
+[data-papel="salvia"] { background-color: #D8E2D2; } [data-papel="rosa"] { background-color: #F0D9D6; } [data-papel="kraft"] { background-color: #CDB48D; --pp-regla: rgba(70,45,20,.22); }
+[data-papel="pergamino"] { background-color: #EBDDB5; --pp-regla: rgba(110,80,30,.18); }
+[data-papel="noche"] { background-color: #1F1C18; --text: #EFE6D3; --muted: #A89B85; --border: rgba(255,255,255,.14); --pp-regla: rgba(255,255,255,.09); --lin: 239,230,211; --accent: #F08C66; --teja: #F08C66; }
+/* tinta */
+[data-tinta="sepia"] { --pp-tinta: #4A3320; } [data-tinta="azul"] { --pp-tinta: #1E3F8F; } [data-tinta="medianoche"] { --pp-tinta: #232C55; }
+[data-tinta="bosque"] { --pp-tinta: #23412E; } [data-tinta="burdeos"] { --pp-tinta: #6B1F2B; }
+[data-papel="noche"][data-tinta="negra"] { --pp-tinta: #EFE6D3; } [data-papel="noche"][data-tinta="sepia"] { --pp-tinta: #E8C9A0; } [data-papel="noche"][data-tinta="azul"] { --pp-tinta: #AFC6FF; }
+[data-papel="noche"][data-tinta="medianoche"] { --pp-tinta: #BCC6F0; } [data-papel="noche"][data-tinta="bosque"] { --pp-tinta: #A7D3B0; } [data-papel="noche"][data-tinta="burdeos"] { --pp-tinta: #F0A9AE; }
+/* tipo de papel: la textura se dibuja encima del color */
+[data-textura="algodon"] { background-image: radial-gradient(rgba(255,255,255,.55) 1px, transparent 1.6px), radial-gradient(rgba(120,100,70,.07) 1px, transparent 1.6px); background-size: 7px 7px, 11px 11px; background-position: 0 0, 3px 4px; }
+[data-textura="verjurado"] { background-image: repeating-linear-gradient(90deg, rgba(60,45,25,.07) 0 1px, transparent 1px 5px), repeating-linear-gradient(0deg, rgba(60,45,25,.035) 0 1px, transparent 1px 38px); }
+[data-textura="reciclado"] { background-image: var(--grano), radial-gradient(rgba(90,70,40,.22) .8px, transparent 1.2px); background-size: 220px 220px, 17px 17px; }
+[data-papel="noche"][data-textura="algodon"] { background-image: radial-gradient(rgba(255,255,255,.06) 1px, transparent 1.6px); background-size: 7px 7px; }
+[data-papel="noche"][data-textura="verjurado"] { background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, transparent 1px 5px); }
+.hoja[data-papel], .lectura[data-papel], .mem-carta[data-papel] { background-blend-mode: normal; }
+/* la hoja de escribir */
 .hoja textarea, .hoja input.titulo { color: var(--pp-tinta); background-color: transparent; }
 .hoja textarea { background-image: repeating-linear-gradient(transparent 0 33px, var(--pp-regla) 33px 34px); }
-.lectura[class*="papel-"] { padding: 22px 24px; margin: 0 16px 8px; border-radius: 6px; }
-.lectura[class*="papel-"] .texto { color: var(--pp-tinta); }
-.papel-kraft { --pp-tinta: #3B2A18; --pp-regla: rgba(70,45,20,.22); background: var(--grano), linear-gradient(160deg, #D8C19A, #C8AC80) !important; }
-.papel-pergamino { --pp-tinta: #3A2D17; --pp-regla: rgba(110,80,30,.18); background: var(--grano), radial-gradient(ellipse at center, #F2E6C2 50%, #DBC38E 100%) !important; }
-.papel-cuaderno { --pp-tinta: #1F2A44; --pp-regla: rgba(66,110,190,.34); background: #FBFBF6 !important; }
-.papel-cuadricula { --pp-tinta: #1F2A44; --pp-regla: transparent; background: linear-gradient(rgba(60,80,120,.13) 1px, transparent 1px) 0 0 / 22px 22px, linear-gradient(90deg, rgba(60,80,120,.13) 1px, transparent 1px) 0 0 / 22px 22px, #FBFAF3 !important; }
-.papel-aereo { --pp-tinta: #1F2A44; --pp-regla: rgba(47,93,158,.2); background: repeating-linear-gradient(135deg, #C9432F 0 14px, #EEF1F5 14px 22px, #2F5D9E 22px 36px, #EEF1F5 36px 44px) top / 100% 9px no-repeat, repeating-linear-gradient(135deg, #C9432F 0 14px, #EEF1F5 14px 22px, #2F5D9E 22px 36px, #EEF1F5 36px 44px) bottom / 100% 9px no-repeat, #EEF1F5 !important; }
-.papel-carbon { --pp-tinta: #EFE6D3; --pp-regla: rgba(255,255,255,.09); background: var(--grano), #1F1C18 !important; border-color: rgba(255,255,255,.08) !important; }
-.hoja.papel-carbon .etq, .hoja.papel-carbon .lbl { color: #A89B85; }
-.hoja.papel-carbon .mano, .hoja.papel-carbon .firma-linea { color: #BFD0F0; }
-.hoja.papel-carbon input::placeholder, .hoja.papel-carbon textarea::placeholder { color: #8A7F6C; }
-.hoja.papel-carbon .chip { color: #CFC4AE; border-color: rgba(255,255,255,.2); } .hoja.papel-carbon .chip.on { background: #EFE6D3; color: #1F1C18; }
-.hoja.papel-carbon .herr { background: rgba(255,255,255,.08); color: #EFE6D3; border-color: rgba(255,255,255,.18); }
-.hoja.papel-carbon .btn.sec { color: #EFE6D3; border-color: rgba(255,255,255,.3); }
-.hoja.papel-carbon .sonido-btn, .hoja.papel-carbon .lampara-btn { background: rgba(255,255,255,.08); color: #CFC4AE; border-color: rgba(255,255,255,.16); }
-.lectura.papel-carbon .mano, .lectura.papel-carbon .pd-et { color: #BFD0F0; } .lectura.papel-carbon .pd-et { color: #F08C66; }
-.papel-cuadricula.hoja::before, .papel-aereo.hoja::before { opacity: .5; }
+.hoja[data-hoja="lisa"] textarea { background-image: none; }
+.hoja[data-hoja="cuaderno"] textarea { background-image: repeating-linear-gradient(transparent 0 33px, rgba(66,110,190,.34) 33px 34px); }
+.hoja[data-hoja="cuaderno"]::before { background: rgba(201,67,47,.45); }
+.hoja[data-hoja="cuadricula"] textarea { background-image: linear-gradient(rgba(60,80,120,.14) 1px, transparent 1px), linear-gradient(90deg, rgba(60,80,120,.14) 1px, transparent 1px); background-size: 34px 34px; background-attachment: local; }
+.hoja[data-hoja="cuadricula"]::before, .hoja[data-hoja="aereo"]::before, .hoja[data-hoja="lisa"]::before { opacity: 0; }
+.hoja[data-hoja="aereo"], .lectura[data-hoja="aereo"], .mem-carta[data-hoja="aereo"], .hoja-muestra[data-hoja="aereo"] { --franja: repeating-linear-gradient(135deg, #C9432F 0 14px, #EEF1F5 14px 22px, #2F5D9E 22px 36px, #EEF1F5 36px 44px); border-top: 9px solid transparent; border-bottom: 9px solid transparent; border-image: var(--franja) 9 / 9px 0 stretch; }
+.hoja[data-papel="noche"] .mano, .hoja[data-papel="noche"] .firma-linea, .lectura[data-papel="noche"] .mano { color: #BFD0F0; }
+.hoja[data-papel="noche"] input::placeholder, .hoja[data-papel="noche"] textarea::placeholder { color: #8A7F6C; }
+.hoja[data-papel="noche"] .chip.on { background: #EFE6D3; color: #1F1C18; }
+.hoja[data-papel="noche"] .herr, .hoja[data-papel="noche"] .sonido-btn, .hoja[data-papel="noche"] .lampara-btn { background: rgba(255,255,255,.08); color: #EFE6D3; border-color: rgba(255,255,255,.18); }
+.hoja[data-papel="noche"] .btn.sec { color: #EFE6D3; border-color: rgba(255,255,255,.3); }
+/* lectura y memoria */
+.lectura[data-papel] { padding: 22px 24px; margin: 0 16px 8px; border-radius: 6px; }
+.lectura[data-papel] .texto, .mem-carta[data-papel] .mem-texto, .mem-carta[data-papel] h2 { color: var(--pp-tinta); }
+.lectura[data-papel="noche"] .pd-et { color: #F08C66; }
+.mem-carta[data-papel] { box-shadow: var(--shadow); }
+@media print { [data-papel] { background-attachment: local; -webkit-print-color-adjust: exact; print-color-adjust: exact; } .mem-carta[data-papel] { padding: 12mm; } }
 
-/* el selector de papel */
-.papeles { display: flex; gap: 10px; flex-wrap: wrap; }
-.muestra-papel { position: relative; display: grid; gap: 5px; justify-items: center; padding: 6px; border-radius: 10px; border: 1.5px solid transparent; transition: all .3s var(--ease); font-family: var(--mono); font-size: 8.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.muestra-papel i { display: block; width: 58px; height: 42px; border-radius: 4px; box-shadow: inset 0 0 0 .5px rgba(0,0,0,.2), 0 3px 8px -4px rgba(0,0,0,.35); }
-.muestra-papel.on { border-color: var(--teja); color: var(--text); transform: translateY(-2px); }
-.muestra-papel:hover { transform: translateY(-2px); }
-.candado-p { position: absolute; top: 2px; right: 2px; font-size: 10px; text-decoration: none; background: var(--paper); border-radius: 50%; width: 18px; height: 18px; display: grid; place-items: center; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
-.p-crema { background: #FBF8F1; } .p-kraft { background: var(--grano), linear-gradient(160deg, #D8C19A, #C8AC80); } .p-pergamino { background: var(--grano), radial-gradient(ellipse at center, #F2E6C2 50%, #DBC38E 100%); }
-.p-cuaderno { background: repeating-linear-gradient(transparent 0 7px, rgba(66,110,190,.4) 7px 8px), #FBFBF6; }
-.p-cuadricula { background: linear-gradient(rgba(60,80,120,.2) 1px, transparent 1px) 0 0 / 9px 9px, linear-gradient(90deg, rgba(60,80,120,.2) 1px, transparent 1px) 0 0 / 9px 9px, #FBFAF3; }
-.p-aereo { background: repeating-linear-gradient(135deg, #C9432F 0 5px, #EEF1F5 5px 8px, #2F5D9E 8px 13px, #EEF1F5 13px 16px) top / 100% 5px no-repeat, repeating-linear-gradient(135deg, #C9432F 0 5px, #EEF1F5 5px 8px, #2F5D9E 8px 13px, #EEF1F5 13px 16px) bottom / 100% 5px no-repeat, #EEF1F5; }
-.p-carbon { background: var(--grano), #1F1C18; }
-.mem-carta[class*="papel-"] { box-shadow: var(--shadow); }
-.mem-carta.papel-carbon .mem-texto, .mem-carta.papel-carbon h2 { color: #EFE6D3; }
-@media print { .papel-kraft, .papel-pergamino, .papel-cuaderno, .papel-cuadricula, .papel-aereo, .papel-carbon { background-attachment: local; } .mem-carta[class*="papel-"] { padding: 12mm; } }
+/* el selector: círculos de color, tipos de papel y hojas */
+.selector-estilo { display: grid; gap: 14px; }
+.selector-estilo .capa { display: grid; gap: 6px; }
+.selector-estilo .lbl { margin: 0; }
+.muestras { display: flex; gap: 8px; flex-wrap: wrap; }
+.muestra { position: relative; display: grid; gap: 5px; justify-items: center; padding: 6px 6px 5px; border-radius: 10px; border: 1.5px solid transparent; transition: all .3s var(--ease); font-family: var(--mono); font-size: 8.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); min-width: 56px; }
+.muestra:hover { transform: translateY(-2px); }
+.muestra.on { border-color: var(--teja); color: var(--text); transform: translateY(-2px); }
+.muestra .circulo { display: block; width: 30px; height: 30px; border-radius: 50%; box-shadow: inset 0 0 0 .5px rgba(0,0,0,.25), 0 3px 8px -4px rgba(0,0,0,.35); }
+.muestra .tex, .muestra .hojam { display: block; width: 50px; height: 36px; border-radius: 4px; box-shadow: inset 0 0 0 .5px rgba(0,0,0,.2), 0 3px 8px -4px rgba(0,0,0,.35); background-color: #F4EEDF; }
+.tex-algodon { background-image: radial-gradient(rgba(255,255,255,.9) 1px, transparent 1.6px), radial-gradient(rgba(120,100,70,.12) 1px, transparent 1.6px); background-size: 5px 5px, 8px 8px; }
+.tex-verjurado { background-image: repeating-linear-gradient(90deg, rgba(60,45,25,.14) 0 1px, transparent 1px 4px); }
+.tex-reciclado { background-image: var(--grano), radial-gradient(rgba(90,70,40,.3) .8px, transparent 1.2px); background-size: 120px 120px, 9px 9px; }
+.hojam-rayas { background-image: repeating-linear-gradient(transparent 0 7px, rgba(150,120,90,.5) 7px 8px); }
+.hojam-cuaderno { background-image: repeating-linear-gradient(transparent 0 7px, rgba(66,110,190,.5) 7px 8px); background-color: #FBFBF6; }
+.hojam-cuadricula { background-image: linear-gradient(rgba(60,80,120,.3) 1px, transparent 1px), linear-gradient(90deg, rgba(60,80,120,.3) 1px, transparent 1px); background-size: 9px 9px; background-color: #FBFAF3; }
+.hojam-aereo { background-image: repeating-linear-gradient(135deg, #C9432F 0 5px, #EEF1F5 5px 8px, #2F5D9E 8px 13px, #EEF1F5 13px 16px), repeating-linear-gradient(135deg, #C9432F 0 5px, #EEF1F5 5px 8px, #2F5D9E 8px 13px, #EEF1F5 13px 16px); background-position: top, bottom; background-size: 100% 5px; background-repeat: no-repeat; background-color: #EEF1F5; }
+.candado-p { position: absolute; top: 0; right: 0; font-size: 10px; text-decoration: none; background: var(--paper); border-radius: 50%; width: 18px; height: 18px; display: grid; place-items: center; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.papel-det > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; padding: 4px 0; }
+.papel-det > summary::-webkit-details-marker { display: none; }
+.papel-det > summary em { font-style: normal; text-transform: none; letter-spacing: 0; font-size: 12px; text-align: right; }
+.papel-det[open] > summary { margin-bottom: 12px; }
+/* vista previa de día y de noche en el perfil */
+.prev-papel { padding: 22px; border-radius: 10px; transition: background .4s var(--ease); }
+.prev-papel.dia { background: #EDE7DA; } .prev-papel.noche { background: #15120F; }
+.hoja-muestra { padding: 20px 22px; border-radius: 6px; font-family: var(--maquina); font-size: 16px; line-height: 30px; color: var(--pp-tinta); box-shadow: 0 10px 30px -12px rgba(0,0,0,.4); transition: all .35s var(--ease); }
+.hoja-muestra[data-hoja="rayas"] { background-image: repeating-linear-gradient(transparent 0 29px, var(--pp-regla) 29px 30px); }
+.hoja-muestra[data-hoja="cuaderno"] { background-image: repeating-linear-gradient(transparent 0 29px, rgba(66,110,190,.34) 29px 30px); }
+.hoja-muestra[data-hoja="cuadricula"] { background-image: linear-gradient(rgba(60,80,120,.14) 1px, transparent 1px), linear-gradient(90deg, rgba(60,80,120,.14) 1px, transparent 1px); background-size: 30px 30px; }
+.prev-papel.noche .hoja-muestra[data-papel="crema"] { --paper: #26221D; --text: #EFE6D3; --pp-regla: rgba(255,255,255,.09); }
+.prev-papel.dia .hoja-muestra[data-papel="crema"] { --paper: #FBF8F1; --text: #1A1810; --pp-regla: rgba(60,45,25,.14); }
+.hoja-muestra p { margin: 0; } .hoja-muestra[data-papel="crema"] { background-color: var(--paper); }
+
+@media (prefers-color-scheme: dark) {
+[data-papel="crema"][data-tinta="sepia"] { --pp-tinta: #E8C9A0; } [data-papel="crema"][data-tinta="azul"] { --pp-tinta: #AFC6FF; } [data-papel="crema"][data-tinta="medianoche"] { --pp-tinta: #BCC6F0; } [data-papel="crema"][data-tinta="bosque"] { --pp-tinta: #A7D3B0; } [data-papel="crema"][data-tinta="burdeos"] { --pp-tinta: #F0A9AE; }
+}
+.prev-papel.noche .hoja-muestra[data-papel="crema"][data-tinta="sepia"] { --pp-tinta: #E8C9A0; } .prev-papel.noche .hoja-muestra[data-papel="crema"][data-tinta="azul"] { --pp-tinta: #AFC6FF; } .prev-papel.noche .hoja-muestra[data-papel="crema"][data-tinta="medianoche"] { --pp-tinta: #BCC6F0; } .prev-papel.noche .hoja-muestra[data-papel="crema"][data-tinta="bosque"] { --pp-tinta: #A7D3B0; } .prev-papel.noche .hoja-muestra[data-papel="crema"][data-tinta="burdeos"] { --pp-tinta: #F0A9AE; }
+.prev-papel.dia .hoja-muestra[data-papel="crema"][data-tinta="negra"] { --pp-tinta: #1A1810; } .prev-papel.dia .hoja-muestra[data-papel="crema"][data-tinta="sepia"] { --pp-tinta: #4A3320; } .prev-papel.dia .hoja-muestra[data-papel="crema"][data-tinta="azul"] { --pp-tinta: #1E3F8F; } .prev-papel.dia .hoja-muestra[data-papel="crema"][data-tinta="medianoche"] { --pp-tinta: #232C55; } .prev-papel.dia .hoja-muestra[data-papel="crema"][data-tinta="bosque"] { --pp-tinta: #23412E; } .prev-papel.dia .hoja-muestra[data-papel="crema"][data-tinta="burdeos"] { --pp-tinta: #6B1F2B; }
 
 /* =====================  LA LAMPARITA  ===================== */
 .lampara-btn { position: absolute !important; top: 14px; right: 62px; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); border: .5px solid var(--border); color: var(--muted); transition: all .3s var(--ease); z-index: 2; }
@@ -681,7 +722,6 @@ body.lampara .aviso { background: #3A2E1E; color: #F3E4C4; }
 #noche .cono { filter: blur(9px); -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.85) 55%, transparent 100%); mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.85) 55%, transparent 100%); }
 body.lampara .hoja { filter: brightness(var(--hoja-brillo, .94)) sepia(var(--hoja-sepia, .09)); }
 .hoja .etq.fecha { padding-right: 104px; }
-.hoja.papel-carbon .muestra-papel { color: #A89B85; } .hoja.papel-carbon .muestra-papel.on { color: #EFE6D3; }
 
 /* ---------- luz nocturna: color, brillo y forma del haz ---------- */
 :root { --luz-rgb: 255,205,130; --luz-a1: .5; --luz-a2: .24; --luz-a3: .08; }

@@ -2,7 +2,9 @@
 // Se carga solo al pedir la memoria: la librería pesa ~400 KB.
 
 const A4 = { w: 210, h: 297 }, M = { l: 22, r: 22, t: 24, b: 22 };
-const PAPEL = { crema: null, kraft: [214, 191, 152], pergamino: [238, 224, 188], cuaderno: [251, 251, 246], cuadricula: [251, 250, 243], aereo: [238, 241, 245], carbon: [31, 28, 24] };
+const PAPEL = { crema: null, beis: [239, 228, 206], gris: [230, 229, 225], azul: [221, 232, 239], salvia: [216, 226, 210], rosa: [240, 217, 214], kraft: [214, 191, 152], pergamino: [238, 224, 188], noche: [31, 28, 24] };
+const TINTA = { negra: [26, 24, 16], sepia: [74, 51, 32], azul: [30, 63, 143], medianoche: [35, 44, 85], bosque: [35, 65, 46], burdeos: [107, 31, 43] };
+const TINTA_NOCHE = { negra: [239, 230, 211], sepia: [232, 201, 160], azul: [175, 198, 255], medianoche: [188, 198, 240], bosque: [167, 211, 176], burdeos: [240, 169, 174] };
 const COL = { texto: [26, 24, 16], suave: [155, 140, 120], teja: [201, 81, 46], tinta: [38, 50, 79], acento: [155, 94, 58], fondo: [237, 231, 218], papel: [251, 248, 241], cinta: [232, 211, 160] };
 
 const aBase64 = (buf) => { let s = ''; const b = new Uint8Array(buf); for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
@@ -34,11 +36,11 @@ export async function creaPdf(datos) {
   const ancho = A4.w - M.l - M.r;
   let y = M.t;
   const color = (c) => doc.setTextColor(c[0], c[1], c[2]);
-  let papelActual = 'crema', TT = COL.texto;
+  let papelActual = 'crema', TT = COL.texto, hojaActual = 'rayas';
   const fondo = () => {
     const c = PAPEL[papelActual]; if (!c) return;
     doc.setFillColor(...c); doc.rect(0, 0, A4.w, A4.h, 'F');
-    if (papelActual === 'aereo') { for (let x = -A4.h; x < A4.w; x += 9) { doc.setFillColor(...(Math.round((x + A4.h) / 9) % 2 ? [47, 93, 158] : [201, 67, 47])); doc.triangle(x, 0, x + 9, 0, x, 6, 'F'); doc.triangle(x, A4.h, x + 9, A4.h, x, A4.h - 6, 'F'); } }
+    if (hojaActual === 'aereo') { for (let x = -A4.h; x < A4.w; x += 9) { doc.setFillColor(...(Math.round((x + A4.h) / 9) % 2 ? [47, 93, 158] : [201, 67, 47])); doc.triangle(x, 0, x + 9, 0, x, 6, 'F'); doc.triangle(x, A4.h, x + 9, A4.h, x, A4.h - 6, 'F'); } }
   };
   const nueva = () => { doc.addPage(); fondo(); y = M.t; };
   const necesita = (h) => { if (y + h > A4.h - M.b) nueva(); };
@@ -69,7 +71,8 @@ export async function creaPdf(datos) {
   };
   if (!datos.cartas.length) { nueva(); texto('Todavía no hay cartas que mostrar.', 'Playfair', 'bold', 20, COL.texto, 9); }
   for (const c of datos.cartas) {
-    papelActual = PAPEL[c.papel] !== undefined ? c.papel : 'crema'; TT = papelActual === 'carbon' ? [239, 230, 211] : COL.texto;
+    const es = c.estilo || {}; papelActual = PAPEL[es.papel] !== undefined ? es.papel : 'crema'; hojaActual = es.hoja || 'rayas';
+    TT = papelActual === 'noche' ? (TINTA_NOCHE[es.tinta] || TINTA_NOCHE.negra) : (es.tinta && es.tinta !== 'negra' ? TINTA[es.tinta] : COL.texto);
     nueva();
     doc.setFont('courier', 'normal'); doc.setFontSize(8); color(COL.suave);
     doc.text(doc.splitTextToSize(c.etiqueta.toUpperCase(), ancho), M.l, y, { charSpace: 0.4 }); y += 8;
@@ -84,7 +87,7 @@ export async function creaPdf(datos) {
       } else if (i) y += 3;
       texto(p.texto, fam, 'normal', pt, TT, lh);
     });
-    if (c.firma) { necesita(16); y += 4; doc.setFont(propia ? fam : 'Caveat', 'normal'); doc.setFontSize(20); color(papelActual === 'carbon' ? [190, 203, 235] : COL.tinta); doc.text(c.firma, A4.w - M.r, y + 6, { align: 'right' }); y += 14; }
+    if (c.firma) { necesita(16); y += 4; doc.setFont(propia ? fam : 'Caveat', 'normal'); doc.setFontSize(20); color(papelActual === 'noche' ? [190, 203, 235] : COL.tinta); doc.text(c.firma, A4.w - M.r, y + 6, { align: 'right' }); y += 14; }
     // polaroids debajo del texto
     if (c.fotos.length) {
       const pw = 50, marco = 3, foto = pw - marco * 2, pie = 11, ph = marco + foto + pie, hueco = (ancho - pw * 3) / 2;

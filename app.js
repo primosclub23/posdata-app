@@ -1243,7 +1243,13 @@ async function pintaFamilia(panel, buzon) {
     try {
       const t = await rpc('invitar', { p_buzon: buzon, p_correo: f.correo.value, p_rol: f.rol.value, p_revisa: f.revisa.checked, p_firma: f.firma.value });
       const url = location.origin + location.pathname + '#invitar/' + t;
-      document.getElementById('enlace').innerHTML = `<p class="muted" style="margin-top:6px">Manda este enlace a esa persona (caduca en 7 días):</p><div class="ticket enlace-url">${esc(url)}</div>`;
+      document.getElementById('enlace').innerHTML = `<p class="muted" style="margin-top:6px">Manda este enlace a esa persona (caduca en 7 días):</p><div class="ticket enlace-url">${esc(url)}</div>
+        <div class="fila" style="margin-top:10px"><a class="btn peq" id="inv-wa" target="_blank" rel="noopener">Enviar por WhatsApp</a><button type="button" class="btn peq sec" id="inv-compartir">Compartir…</button><button type="button" class="btn peq sec" id="inv-copiar">Copiar enlace</button></div>`;
+      const texto = `Te invito a mi buzón en Posdata para que puedas escribir tus cartas. Abre este enlace y crea tu cuenta (caduca en 7 días): ${url}`;
+      document.getElementById('inv-wa').href = 'https://wa.me/?text=' + encodeURIComponent(texto);
+      const cs = document.getElementById('inv-compartir'); if (!navigator.share) cs.hidden = true;
+      cs.onclick = async () => { try { await navigator.share({ title: 'Posdata', text: texto }); } catch { /* cancelado */ } };
+      document.getElementById('inv-copiar').onclick = async () => { try { await navigator.clipboard.writeText(url); avisa('Enlace copiado.'); } catch { avisa('No se ha podido copiar.', true); } };
     } catch (e) { avisa(msgError(e), true); }
   };
 }

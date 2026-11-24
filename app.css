@@ -791,3 +791,5 @@ body.lampara #haz-delante { opacity: 1; visibility: visible; }
 .haz-base { display: none; }
 body.lampara .cuerpo-app { padding-top: 176px; }
 @media (max-width: 560px) { body.lampara .cuerpo-app { padding-top: 136px; } }
+/* sin el reflejo amarillo de fondo detrás de la lámpara: la luz solo se ve sobre la carta */
+#noche .cono, .noche-prueba .cono { display: none; }

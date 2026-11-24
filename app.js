@@ -20,7 +20,7 @@ const ERRORES = {
   sin_permiso: 'No tienes permiso para hacer eso.', texto_vacio: 'Escribe algo antes de enviar.',
   fecha_no_valida: 'La fecha de apertura tiene que ser posterior a hoy.', momento_vacio: 'Pon un nombre al momento («Cuando estés triste»).',
   llave_no_valida: 'Ese código no abre ningún buzón.', demasiados_intentos: 'Demasiados intentos. Espera unos minutos.',
-  invitacion_no_valida: 'La invitación no es válida o ha caducado.', ya_eres_miembro: 'Ya tienes acceso a este buzón.',
+  invitacion_no_valida: 'La invitación no es válida o ha caducado.', demasiadas_invitaciones: 'Ya tienes 20 invitaciones sin usar. Quita alguna antes de crear otra.', ya_eres_miembro: 'Ya tienes acceso a este buzón.',
   no_pendiente: 'Esa carta ya no está pendiente.', papel_premium: 'Los papeles y las tintas distintos son de Posdata completa.', papel_no_valido: 'Ese papel no existe.', borrador_no_valido: 'Ese borrador ya no existe.', demasiados_borradores: 'Ya tienes 30 borradores en este buzón: borra alguno.', cinta_sin_titulo: 'Ponle un nombre a la cinta.', cancion_sin_titulo: 'Escribe el título de la canción.', cara_llena: 'Esa cara ya tiene 6 canciones. Pasa alguna a la otra cara.', demasiadas_cintas: 'Ya tienes muchas cintas.', 'violates check constraint': 'Revisa los datos: el enlace tiene que empezar por https://', carta_no_editable: 'Esa carta ya no se puede editar: quien la recibe ya puede leerla.', usa_editar: 'Esa carta aún se puede editar directamente.', parte_no_valida: 'Ese texto ya no existe.', texto_largo: 'El texto es demasiado largo.', tema_repetido: 'Ya hay un tema con ese nombre.', tema_vacio: 'Escribe el nombre del tema.', demasiados_temas: 'Ya hay demasiados temas.', tema_no_valido: 'Ese tema ya no existe.',
   demasiados_adjuntos: 'Demasiadas fotos o audios en una carta.', adjunto_no_subido: 'No se ha podido subir un archivo. Inténtalo otra vez.', 'row-level security': 'No puedes subir archivos a este buzón.', 'maximum allowed size': 'Ese archivo pesa demasiado.', 'mime type': 'Ese tipo de archivo no está permitido.', correo_no_valido: 'Ese correo no parece válido.', no_autenticado: 'Entra primero.',
   'Invalid login credentials': 'Correo o contraseña incorrectos.', 'User already registered': 'Ya hay una cuenta con ese correo.',
@@ -1228,7 +1228,8 @@ async function pintaFamilia(panel, buzon) {
   panel.innerHTML = `<div class="papel"><p class="etq">La tarjeta de quien recibe</p><h3 style="margin:4px 0 6px">Su código de entrada</h3><p class="muted" style="margin-bottom:14px">Es el que se imprime en la tarjeta. Solo se muestra una vez: si generas otro, el anterior deja de funcionar.</p><div id="llave"></div><button class="btn peq" id="gl">Generar un código</button></div>
     <div class="papel"><p class="etq">Acceso</p><h3 style="margin:4px 0 8px">Quién puede entrar</h3>${miembros.map((m) => `<div class="persona"><span class="avatar">${inicial(m.firma || m.correo)}</span><div class="txt"><b>${esc(m.firma || m.correo || 'Sin firma')}</b><br><span class="muted">${esc(m.correo || '')}${m.rol === 'escribe' ? (m.correo ? ' · ' : '') + (m.revisa ? 'con revisión' : 'sin revisión') : ''}</span></div><span class="sello ${m.estado === 'invitada' ? 'pend' : ''}">${m.estado === 'invitada' ? 'Invitada' : ROL[m.rol]}</span>${m.rol !== 'dueno' ? `<button class="enlace" data-q="${m.id}">Quitar</button>` : ''}</div>`).join('')}</div>
     <form class="papel" id="inv"><div><p class="etq">Familia y amigos</p><h3 style="margin-top:4px">Invitar a alguien</h3></div>
-      <label><span>Su correo</span><input type="email" name="correo" required placeholder="tere@correo.com"></label>
+      <label><span>Su correo (opcional)</span><input type="email" name="correo" placeholder="tere@correo.com"></label>
+      <p class="ayuda" style="margin-top:-6px">Si lo pones, podrás mandarle la invitación por correo. Si no, te saldrá un enlace para enviarlo por WhatsApp.</p>
       <label><span>Qué puede hacer</span><select name="rol"><option value="escribe">Escribir cartas</option><option value="lee">Solo leer</option><option value="confianza">Persona de confianza (entrega, no lee)</option></select></label>
       <label><span>Cómo firmará</span><input name="firma" maxlength="40" placeholder="Tu abuela Tere"></label>
       <label class="check"><input type="checkbox" name="revisa" checked> Yo reviso sus cartas antes de que se sellen</label>
@@ -1241,12 +1242,13 @@ async function pintaFamilia(panel, buzon) {
   document.getElementById('inv').onsubmit = async (ev) => {
     ev.preventDefault(); const f = ev.target;
     try {
-      const t = await rpc('invitar', { p_buzon: buzon, p_correo: f.correo.value, p_rol: f.rol.value, p_revisa: f.revisa.checked, p_firma: f.firma.value });
+      const t = await rpc('invitar', { p_buzon: buzon, p_correo: f.correo.value.trim() || null, p_rol: f.rol.value, p_revisa: f.revisa.checked, p_firma: f.firma.value });
       const url = location.origin + location.pathname + '#invitar/' + t;
       document.getElementById('enlace').innerHTML = `<p class="muted" style="margin-top:6px">Manda este enlace a esa persona (caduca en 7 días):</p><div class="ticket enlace-url">${esc(url)}</div>
-        <div class="fila" style="margin-top:10px"><a class="btn peq" id="inv-wa" target="_blank" rel="noopener">Enviar por WhatsApp</a><button type="button" class="btn peq sec" id="inv-compartir">Compartir…</button><button type="button" class="btn peq sec" id="inv-copiar">Copiar enlace</button></div>`;
+        <div class="fila" style="margin-top:10px"><a class="btn peq" id="inv-wa" target="_blank" rel="noopener">Enviar por WhatsApp</a>${f.correo.value.trim() ? '<a class="btn peq sec" id="inv-correo">Enviar por correo</a>' : ''}<button type="button" class="btn peq sec" id="inv-compartir">Compartir…</button><button type="button" class="btn peq sec" id="inv-copiar">Copiar enlace</button></div>`;
       const texto = `Te invito a mi buzón en Posdata para que puedas escribir tus cartas. Abre este enlace y crea tu cuenta (caduca en 7 días): ${url}`;
       document.getElementById('inv-wa').href = 'https://wa.me/?text=' + encodeURIComponent(texto);
+      const ic = document.getElementById('inv-correo'); if (ic) ic.href = `mailto:${encodeURIComponent(f.correo.value.trim())}?subject=${encodeURIComponent('Te invito a mi buzón en Posdata')}&body=${encodeURIComponent(texto)}`;
       const cs = document.getElementById('inv-compartir'); if (!navigator.share) cs.hidden = true;
       cs.onclick = async () => { try { await navigator.share({ title: 'Posdata', text: texto }); } catch { /* cancelado */ } };
       document.getElementById('inv-copiar').onclick = async () => { try { await navigator.clipboard.writeText(url); avisa('Enlace copiado.'); } catch { avisa('No se ha podido copiar.', true); } };
